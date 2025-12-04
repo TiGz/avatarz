@@ -16,32 +16,22 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
   const [mode, setMode] = useState<'select' | 'webcam' | 'upload' | 'library'>('select')
   const [cameraError, setCameraError] = useState(false)
   const [saveToLibrary, setSaveToLibrary] = useState(true)
+  const [previewData, setPreviewData] = useState<string | null>(null)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [isConfirming, setIsConfirming] = useState(false)
   const webcamRef = useRef<Webcam>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { photos, loading: photosLoading, uploadFromDataUrl, uploadPhoto } = usePhotos()
 
-  const capture = useCallback(async () => {
+  const capture = useCallback(() => {
     const imageSrc = webcamRef.current?.getScreenshot()
     if (imageSrc) {
-      wizard.updateState({ imageData: imageSrc })
-
-      // Optionally save to library
-      if (saveToLibrary) {
-        toast.loading('Saving to library...')
-        const photo = await uploadFromDataUrl(imageSrc, `selfie_${Date.now()}.jpg`)
-        toast.dismiss()
-        if (photo) {
-          wizard.updateState({
-            inputPhotoId: photo.id,
-            inputPhotoPath: photo.storage_path,
-          } as any)
-          toast.success('Saved to library!')
-        }
-      }
+      setPreviewData(imageSrc)
+      setPendingFile(null)
     }
-  }, [wizard, saveToLibrary, uploadFromDataUrl])
+  }, [])
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -56,23 +46,9 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
     }
 
     const reader = new FileReader()
-    reader.onload = async () => {
-      const imageData = reader.result as string
-      wizard.updateState({ imageData })
-
-      // Optionally save to library
-      if (saveToLibrary) {
-        toast.loading('Saving to library...')
-        const photo = await uploadPhoto(file, file.name)
-        toast.dismiss()
-        if (photo) {
-          wizard.updateState({
-            inputPhotoId: photo.id,
-            inputPhotoPath: photo.storage_path,
-          } as any)
-          toast.success('Saved to library!')
-        }
-      }
+    reader.onload = () => {
+      setPreviewData(reader.result as string)
+      setPendingFile(file)
     }
     reader.readAsDataURL(file)
   }
@@ -87,19 +63,113 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
     }
   }
 
+  const handleRetake = () => {
+    setPreviewData(null)
+    setPendingFile(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const handleConfirm = async () => {
+    if (!previewData) return
+
+    setIsConfirming(true)
+
+    // Update wizard with the image data
+    wizard.updateState({ imageData: previewData })
+
+    // Optionally save to library
+    if (saveToLibrary) {
+      toast.loading('Saving to library...')
+      let photo = null
+
+      if (pendingFile) {
+        photo = await uploadPhoto(pendingFile, pendingFile.name)
+      } else {
+        photo = await uploadFromDataUrl(previewData, `selfie_${Date.now()}.jpg`)
+      }
+
+      toast.dismiss()
+      if (photo) {
+        wizard.updateState({
+          inputPhotoId: photo.id,
+          inputPhotoPath: photo.storage_path,
+        } as any)
+        toast.success('Saved to library!')
+      }
+    }
+
+    setIsConfirming(false)
+    wizard.nextStep()
+  }
+
   const reset = () => {
     wizard.updateState({
       imageData: null,
       inputPhotoId: null,
       inputPhotoPath: null,
     } as any)
+    setPreviewData(null)
+    setPendingFile(null)
     setMode('select')
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
   }
 
-  // Show preview if image is captured
+  // Show preview of new capture (not yet persisted)
+  if (previewData) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-white text-center">
+          Looking good!
+        </h2>
+
+        <div className="relative aspect-square max-w-sm mx-auto rounded-2xl overflow-hidden border-2 border-purple-500/50">
+          <img
+            src={previewData}
+            alt="Preview"
+            className="w-full h-full object-cover"
+          />
+        </div>
+
+        {/* Save to library toggle */}
+        <label className="flex items-center justify-center gap-2 text-gray-300 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={saveToLibrary}
+            onChange={(e) => setSaveToLibrary(e.target.checked)}
+            className="w-4 h-4 rounded border-white/20 bg-white/5 text-purple-500 focus:ring-purple-500"
+          />
+          <Save className="h-4 w-4" />
+          <span className="text-sm">Save to my library</span>
+        </label>
+
+        <div className="flex justify-center gap-4">
+          <Button
+            variant="outline"
+            onClick={handleRetake}
+            disabled={isConfirming}
+            className="bg-transparent border-white/20 text-white hover:bg-white/10"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Retake
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={isConfirming}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+          >
+            {isConfirming ? 'Saving...' : 'Continue'}
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Show preview of library selection (already persisted)
   if (wizard.state.imageData) {
     return (
       <div className="space-y-6">

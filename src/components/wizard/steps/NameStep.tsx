@@ -30,7 +30,7 @@ export function NameStep({ wizard, options }: NameStepProps) {
           onClick={() => updateState({ showName: false })}
           className={!state.showName
             ? 'bg-gradient-to-r from-purple-500 to-pink-500'
-            : 'border-white/20 text-white hover:bg-white/10'
+            : 'bg-transparent border-white/20 text-white hover:bg-white/10'
           }
         >
           No thanks
@@ -40,7 +40,7 @@ export function NameStep({ wizard, options }: NameStepProps) {
           onClick={() => updateState({ showName: true })}
           className={state.showName
             ? 'bg-gradient-to-r from-purple-500 to-pink-500'
-            : 'border-white/20 text-white hover:bg-white/10'
+            : 'bg-transparent border-white/20 text-white hover:bg-white/10'
           }
         >
           Yes, add name
