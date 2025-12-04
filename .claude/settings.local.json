@@ -50,7 +50,10 @@
       "Bash(npx tsc:*)",
       "Bash(npx supabase db execute:*)",
       "Bash(curl -s \"https://ucgabgrineaweqpjripj.supabase.co/functions/v1/generate-avatar\")",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(grep:*)",
+      "Bash(curl:*)",
+      "Bash(gh run list:*)"
     ],
     "deny": [],
     "ask": []
