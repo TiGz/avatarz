@@ -96,9 +96,15 @@ const NAME_PLACEMENTS: NamePlacementDefinition[] = [
 
 const CROP_TYPES: CropDefinition[] = [
   {
-    id: 'headshot',
-    label: 'Headshot',
-    description: 'Face and shoulders',
+    id: 'floating-head',
+    label: 'Floating Head',
+    description: 'Just the head',
+    prompt: 'Show only the disembodied floating head with no neck, shoulders, or body visible. The head should appear to float against the background. Apply stylistic effects appropriate to the chosen art style (glow, shadow, fade, or clean cut depending on style).',
+  },
+  {
+    id: 'portrait',
+    label: 'Portrait',
+    description: 'Head & shoulders',
     prompt: 'Show only the head and shoulders, tightly cropped portrait composition.',
   },
   {

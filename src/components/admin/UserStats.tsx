@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Loader2, RefreshCw, Crown, User, Star, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { UserStats as UserStatsType, UserTier } from '@/types'
+import { useAuth } from '@/hooks/useAuth'
 
 const tierConfig: Record<UserTier, { label: string; color: string; icon: React.ReactNode }> = {
   admin: { label: 'Admin', color: 'text-amber-400', icon: <Crown className="h-3 w-3" /> },
@@ -12,6 +13,7 @@ const tierConfig: Record<UserTier, { label: string; color: string; icon: React.R
 }
 
 export function UserStats() {
+  const { user } = useAuth()
   const [stats, setStats] = useState<UserStatsType[]>([])
   const [loading, setLoading] = useState(true)
   const [changingTier, setChangingTier] = useState<string | null>(null)
@@ -141,13 +143,14 @@ export function UserStats() {
               </tr>
             </thead>
             <tbody>
-              {stats.map((user) => {
-                const tier = (user.stat_tier as UserTier) || 'standard'
+              {stats.map((statUser) => {
+                const tier = (statUser.stat_tier as UserTier) || 'standard'
                 const tierInfo = tierConfig[tier]
+                const isCurrentUser = user?.id === statUser.stat_user_id
 
                 return (
                   <tr
-                    key={user.stat_user_id}
+                    key={statUser.stat_user_id}
                     className="border-b border-white/5 hover:bg-white/5"
                   >
                     <td className="py-2 px-3">
@@ -156,18 +159,25 @@ export function UserStats() {
                           {tierInfo.icon}
                         </span>
                         <span className="text-gray-300 truncate max-w-[150px]">
-                          {user.stat_email}
+                          {statUser.stat_email}
                         </span>
+                        {isCurrentUser && (
+                          <span className="text-xs text-gray-500">(you)</span>
+                        )}
                       </div>
                     </td>
                     <td className="py-2 px-3 relative">
-                      {changingTier === user.stat_user_id ? (
+                      {isCurrentUser ? (
+                        <span className={`flex items-center gap-1.5 px-2 py-1 text-xs font-medium ${tierInfo.color}`}>
+                          {tierInfo.label}
+                        </span>
+                      ) : changingTier === statUser.stat_user_id ? (
                         <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
                       ) : (
                         <div className="relative">
                           <button
                             onClick={() => setOpenDropdown(
-                              openDropdown === user.stat_user_id ? null : user.stat_user_id
+                              openDropdown === statUser.stat_user_id ? null : statUser.stat_user_id
                             )}
                             className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${tierInfo.color} hover:bg-white/10`}
                           >
@@ -175,12 +185,12 @@ export function UserStats() {
                             <ChevronDown className="h-3 w-3" />
                           </button>
 
-                          {openDropdown === user.stat_user_id && (
+                          {openDropdown === statUser.stat_user_id && (
                             <div className="absolute top-full left-0 mt-1 bg-gray-900 border border-white/10 rounded-lg shadow-lg z-10 min-w-[120px]">
                               {(['admin', 'premium', 'standard'] as UserTier[]).map((tierOption) => (
                                 <button
                                   key={tierOption}
-                                  onClick={() => handleTierChange(user.stat_user_id, tierOption)}
+                                  onClick={() => handleTierChange(statUser.stat_user_id, tierOption)}
                                   disabled={tier === tierOption}
                                   className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-white/10 first:rounded-t-lg last:rounded-b-lg ${
                                     tier === tierOption ? 'opacity-50' : ''
@@ -196,20 +206,20 @@ export function UserStats() {
                       )}
                     </td>
                     <td className="py-2 px-3 text-gray-300 text-right">
-                      {user.stat_total_generations}
+                      {statUser.stat_total_generations}
                     </td>
                     <td className="py-2 px-3 text-right">
-                      <span className={user.stat_generations_today > 0 ? 'text-blue-400' : 'text-gray-500'}>
-                        {user.stat_generations_today}
+                      <span className={statUser.stat_generations_today > 0 ? 'text-blue-400' : 'text-gray-500'}>
+                        {statUser.stat_generations_today}
                       </span>
                     </td>
                     <td className="py-2 px-3 text-right">
-                      <span className={user.stat_total_cost > 0 ? 'text-green-400' : 'text-gray-500'}>
-                        {formatCost(user.stat_total_cost)}
+                      <span className={statUser.stat_total_cost > 0 ? 'text-green-400' : 'text-gray-500'}>
+                        {formatCost(statUser.stat_total_cost)}
                       </span>
                     </td>
                     <td className="py-2 px-3 text-gray-400 text-right whitespace-nowrap">
-                      {formatDate(user.stat_last_generation_at)}
+                      {formatDate(statUser.stat_last_generation_at)}
                     </td>
                   </tr>
                 )

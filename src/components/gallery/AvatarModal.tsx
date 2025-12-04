@@ -47,8 +47,14 @@ export function AvatarModal({ generation, onClose, onDownload, onDelete, deletin
   }
 
   const formatCrop = (crop: string) => {
-    if (crop === 'half') return 'Half Body'
-    return crop.replace(/\b\w/g, (l) => l.toUpperCase())
+    const labels: Record<string, string> = {
+      'floating-head': 'Floating Head',
+      portrait: 'Portrait',
+      headshot: 'Headshot', // legacy support
+      half: 'Half Body',
+      full: 'Full Body',
+    }
+    return labels[crop] || crop.replace(/\b\w/g, (l) => l.toUpperCase())
   }
 
   return (

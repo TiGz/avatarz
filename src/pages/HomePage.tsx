@@ -5,20 +5,28 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
 import { useQuota } from '@/hooks/useQuota'
+import { useInviteQuota } from '@/hooks/useInviteQuota'
 import { LogOut, Settings, Image, FolderOpen, Users, X, Sparkles } from 'lucide-react'
 import { Header } from '@/components/ui/Header'
 import { QuotaDisplay } from '@/components/ui/QuotaDisplay'
 import { PublicAvatarShowcase } from '@/components/ui/PublicAvatarShowcase'
 import { InviteManager } from '@/components/invite/InviteManager'
+import { InviteQuotaIndicator } from '@/components/invite/InviteQuotaIndicator'
 
 export function HomePage() {
   const { user, signOut } = useAuth()
   const { isAdmin } = useAdmin()
   const { quota } = useQuota()
+  const { quota: inviteQuota } = useInviteQuota()
   const [showInvitePanel, setShowInvitePanel] = useState(false)
 
   // Check if user can invite (premium or admin)
   const canInvite = quota?.tier === 'premium' || quota?.tier === 'admin'
+
+  // Show invite indicator if user can invite and has remaining invites
+  const showInviteIndicator = canInvite &&
+    inviteQuota?.remaining !== undefined &&
+    inviteQuota.remaining > 0
 
   const handleSignOut = async () => {
     try {
@@ -114,9 +122,18 @@ export function HomePage() {
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
             Welcome, {user?.email?.split('@')[0]}!
           </h1>
-          <p className="text-xl text-gray-300 mb-8">
+          <p className="text-xl text-gray-300 mb-6">
             Ready to create your unique avatar?
           </p>
+
+          {showInviteIndicator && (
+            <div className="mb-6">
+              <InviteQuotaIndicator
+                remaining={inviteQuota!.remaining!}
+                onClick={() => setShowInvitePanel(true)}
+              />
+            </div>
+          )}
 
           <Link to="/wizard">
             <Button

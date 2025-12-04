@@ -9,7 +9,7 @@ const createInitialState = (options?: AvatarOptions | null): WizardState => ({
   category: options?.categories[0]?.id || 'animated',
   style: '', // Will be set when category is selected (first style in that category)
   customStyle: '',
-  cropType: options?.cropTypes[0]?.id || 'headshot',
+  cropType: options?.cropTypes.find(c => c.id === 'portrait')?.id || 'portrait',
   showName: false,
   name: '',
   namePlacement: options?.namePlacements[0]?.id || 'graffiti',

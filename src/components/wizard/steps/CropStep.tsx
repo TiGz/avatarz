@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { WizardHook } from '@/hooks/useWizard'
 import { AvatarOptions } from '@/types'
-import { ArrowLeft, ArrowRight, User, UserCircle } from 'lucide-react'
+import { ArrowLeft, ArrowRight, User, UserCircle, Circle } from 'lucide-react'
 
 interface CropStepProps {
   wizard: WizardHook
@@ -9,7 +9,8 @@ interface CropStepProps {
 }
 
 const cropIcons: Record<string, React.ReactNode> = {
-  headshot: <UserCircle className="w-8 h-8 text-white" />,
+  'floating-head': <Circle className="w-8 h-8 text-white" />,
+  portrait: <UserCircle className="w-8 h-8 text-white" />,
   half: (
     <div className="w-8 h-8 flex items-end justify-center">
       <User className="w-6 h-6 text-white" />

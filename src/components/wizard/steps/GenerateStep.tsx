@@ -362,7 +362,13 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
               Style: <span className="text-white capitalize">{state.style.replace('-', ' ')}</span>
             </div>
             <div className="text-gray-400">
-              Crop: <span className="text-white capitalize">{state.cropType === 'half' ? 'Half body' : state.cropType}</span>
+              Crop: <span className="text-white">{
+                state.cropType === 'floating-head' ? 'Floating Head' :
+                state.cropType === 'half' ? 'Half Body' :
+                state.cropType === 'full' ? 'Full Body' :
+                state.cropType === 'portrait' ? 'Portrait' :
+                state.cropType
+              }</span>
             </div>
             {state.showName && (
               <div className="text-gray-400">

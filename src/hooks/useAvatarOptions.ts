@@ -17,7 +17,8 @@ const FALLBACK_OPTIONS: AvatarOptions = {
     { id: 'custom', label: 'Custom', description: 'Describe your own placement' },
   ],
   cropTypes: [
-    { id: 'headshot', label: 'Headshot', description: 'Face and shoulders' },
+    { id: 'floating-head', label: 'Floating Head', description: 'Just the head' },
+    { id: 'portrait', label: 'Portrait', description: 'Head & shoulders' },
     { id: 'half', label: 'Half Body', description: 'Waist up' },
     { id: 'full', label: 'Full Body', description: 'Entire body' },
   ],

@@ -18,7 +18,8 @@ const BACKGROUND_PROMPTS = {
 }
 
 const CROP_PROMPTS: Record<string, string> = {
-  headshot: 'Show only the head and shoulders, tightly cropped portrait composition.',
+  'floating-head': 'Show only the disembodied floating head with no neck, shoulders, or body visible. The head should appear to float against the background. Apply stylistic effects appropriate to the chosen art style (glow, shadow, fade, or clean cut depending on style).',
+  portrait: 'Show only the head and shoulders, tightly cropped portrait composition.',
   half: 'Show from the waist up, medium shot composition.',
   full: 'Show the entire body in frame, full length portrait.',
 }
