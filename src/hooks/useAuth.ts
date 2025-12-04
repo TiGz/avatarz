@@ -23,7 +23,41 @@ export function useAuth() {
 
     const initAuth = async () => {
       try {
+        // Check for pending auth tokens from magic link redirect (see index.html)
+        const pendingTokens = sessionStorage.getItem('pending-auth-tokens')
+        if (pendingTokens) {
+          console.log('[Auth] Found pending auth tokens from magic link')
+          sessionStorage.removeItem('pending-auth-tokens')
+
+          const { access_token, refresh_token } = JSON.parse(pendingTokens)
+          console.log('[Auth] Calling setSession() with tokens')
+
+          const { data, error: setSessionError } = await supabase.auth.setSession({
+            access_token,
+            refresh_token,
+          })
+
+          if (setSessionError) {
+            console.error('[Auth] setSession error:', setSessionError)
+            throw setSessionError
+          }
+
+          console.log('[Auth] Session established successfully:', data.session?.user?.email)
+
+          if (!mounted) return
+          setState({
+            session: data.session,
+            user: data.session?.user ?? null,
+            loading: false,
+            error: null,
+          })
+          return
+        }
+
+        // Normal flow: check existing session
+        console.log('[Auth] Checking existing session')
         const { data: { session }, error } = await supabase.auth.getSession()
+        console.log('[Auth] getSession result:', session ? `user: ${session.user?.email}` : 'no session')
 
         if (error) throw error
         if (!mounted) return
@@ -35,6 +69,7 @@ export function useAuth() {
           error: null,
         })
       } catch (err) {
+        console.error('[Auth] Error during auth init:', err)
         if (!mounted) return
         setState(prev => ({
           ...prev,

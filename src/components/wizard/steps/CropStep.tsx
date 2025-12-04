@@ -65,7 +65,7 @@ export function CropStep({ wizard, options }: CropStepProps) {
         <Button
           variant="outline"
           onClick={prevStep}
-          className="border-white/20 text-white hover:bg-white/10"
+          className="bg-transparent border-white/20 text-white hover:bg-white/10"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back

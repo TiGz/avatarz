@@ -3,15 +3,13 @@ import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 
 interface HeaderProps {
-  /** Page title shown next to logo (defaults to "Avatarz") */
-  title?: string
   /** Show back button linking to home */
   showBack?: boolean
   /** Right-side actions */
   children?: React.ReactNode
 }
 
-export function Header({ title = 'Avatarz', showBack = false, children }: HeaderProps) {
+export function Header({ showBack = false, children }: HeaderProps) {
   return (
     <header className="p-4 flex justify-between items-center">
       <div className="flex items-center gap-2">
@@ -22,13 +20,12 @@ export function Header({ title = 'Avatarz', showBack = false, children }: Header
             </Button>
           </Link>
         )}
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/">
           <img
-            src="/avatarz-logo.png"
+            src={`${import.meta.env.BASE_URL}avatarz-logo.png`}
             alt="Avatarz"
-            className="w-8 h-8 rounded-lg"
+            className="h-10 rounded-lg"
           />
-          <span className="font-bold text-white">{title}</span>
         </Link>
       </div>
       {children && (

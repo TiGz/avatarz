@@ -180,7 +180,7 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
           <Button
             variant="outline"
             onClick={prevStep}
-            className="border-white/20 text-white hover:bg-white/10"
+            className="bg-transparent border-white/20 text-white hover:bg-white/10"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Go Back
@@ -208,7 +208,7 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
           <Button
             variant="outline"
             onClick={prevStep}
-            className="border-white/20 text-white hover:bg-white/10"
+            className="bg-transparent border-white/20 text-white hover:bg-white/10"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Go Back
@@ -316,7 +316,7 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
           <Button
             variant="outline"
             onClick={prevStep}
-            className="border-white/20 text-white hover:bg-white/10"
+            className="bg-transparent border-white/20 text-white hover:bg-white/10"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
@@ -489,7 +489,7 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
             variant="outline"
             size="sm"
             onClick={() => setShowPromptPreview(true)}
-            className="w-full border-white/20 text-white/70 hover:text-white hover:bg-white/10"
+            className="bg-transparent w-full border-white/20 text-white/70 hover:text-white hover:bg-white/10"
           >
             <Eye className="mr-2 h-4 w-4" />
             Preview Full Prompt
@@ -501,7 +501,7 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
         <Button
           variant="outline"
           onClick={prevStep}
-          className="border-white/20 text-white hover:bg-white/10"
+          className="bg-transparent border-white/20 text-white hover:bg-white/10"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back

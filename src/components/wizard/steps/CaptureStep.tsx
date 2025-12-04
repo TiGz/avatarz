@@ -119,7 +119,7 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
           <Button
             variant="outline"
             onClick={reset}
-            className="border-white/20 text-white hover:bg-white/10"
+            className="bg-transparent border-white/20 text-white hover:bg-white/10"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
             Change
@@ -157,7 +157,7 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
           <Button
             variant="outline"
             onClick={() => setMode('select')}
-            className="border-white/20 text-white hover:bg-white/10"
+            className="bg-transparent border-white/20 text-white hover:bg-white/10"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
@@ -181,7 +181,7 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
           <Button
             onClick={() => setMode('select')}
             variant="outline"
-            className="border-white/20 text-white hover:bg-white/10"
+            className="bg-transparent border-white/20 text-white hover:bg-white/10"
           >
             Go Back
           </Button>
@@ -226,7 +226,7 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
           <Button
             variant="outline"
             onClick={() => setMode('select')}
-            className="border-white/20 text-white hover:bg-white/10"
+            className="bg-transparent border-white/20 text-white hover:bg-white/10"
           >
             Cancel
           </Button>

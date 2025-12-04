@@ -95,7 +95,7 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
         <Button
           variant="outline"
           onClick={reset}
-          className="border-white/20 text-white hover:bg-white/10"
+          className="bg-transparent border-white/20 text-white hover:bg-white/10"
         >
           <RefreshCw className="mr-2 h-4 w-4" />
           Create Another
@@ -103,7 +103,7 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
         <Button
           variant="outline"
           onClick={regenerate}
-          className="border-white/20 text-white hover:bg-white/10"
+          className="bg-transparent border-white/20 text-white hover:bg-white/10"
           title="Generate another avatar with the same style and settings"
         >
           <RotateCw className="mr-2 h-4 w-4" />
@@ -112,7 +112,7 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
         <Link to="/gallery">
           <Button
             variant="outline"
-            className="border-white/20 text-white hover:bg-white/10"
+            className="bg-transparent border-white/20 text-white hover:bg-white/10"
           >
             <Images className="mr-2 h-4 w-4" />
             View Gallery

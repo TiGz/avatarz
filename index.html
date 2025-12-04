@@ -13,35 +13,36 @@
     <script>
       // Handle Supabase auth callback before React loads
       // Supports both #access_token= and #/access_token= formats (HashRouter compat)
+      // Uses sessionStorage to pass tokens to React, which calls setSession() properly
       (function() {
         var hash = window.location.hash;
+        console.log('[PreAuth] Checking hash:', hash ? hash.substring(0, 50) + '...' : 'none');
+
         if (hash && hash.includes('access_token=')) {
-          // Remove leading #/ or # to get params
-          var paramStr = hash.replace(/^#\/?/, '');
+          console.log('[PreAuth] Auth tokens detected in URL');
+
+          // Remove leading #/, #/#, or # to get params
+          // Handles: #access_token, #/access_token, #/#access_token (double hash from redirectTo)
+          var paramStr = hash.replace(/^#\/?#?/, '');
           var params = new URLSearchParams(paramStr);
           var accessToken = params.get('access_token');
           var refreshToken = params.get('refresh_token');
-          var expiresIn = params.get('expires_in');
-          var tokenType = params.get('token_type');
 
           if (accessToken && refreshToken) {
-            // Calculate expiry
-            var expiresAt = Math.floor(Date.now() / 1000) + parseInt(expiresIn || '3600');
+            console.log('[PreAuth] Valid tokens found, storing in sessionStorage');
 
-            // Build session object matching Supabase format
-            var session = {
+            // Store tokens in sessionStorage for React app to process via setSession()
+            // This ensures Supabase SDK properly establishes the session with user data
+            sessionStorage.setItem('pending-auth-tokens', JSON.stringify({
               access_token: accessToken,
-              refresh_token: refreshToken,
-              expires_in: parseInt(expiresIn || '3600'),
-              expires_at: expiresAt,
-              token_type: tokenType || 'bearer'
-            };
-
-            // Store in localStorage with Supabase's expected key
-            localStorage.setItem('avatarz-auth', JSON.stringify(session));
+              refresh_token: refreshToken
+            }));
 
             // Clean redirect to app root (removes auth params from URL)
+            console.log('[PreAuth] Redirecting to clean URL');
             window.location.replace(window.location.pathname + '#/');
+          } else {
+            console.log('[PreAuth] Missing access_token or refresh_token');
           }
         }
       })();

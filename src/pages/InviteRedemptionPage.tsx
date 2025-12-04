@@ -100,12 +100,13 @@ export function InviteRedemptionPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex flex-col">
       {/* Header */}
-      <header className="p-4 flex justify-center">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-bold text-white">Avatarz</span>
+      <header className="p-6 flex justify-center">
+        <Link to="/">
+          <img
+            src={`${import.meta.env.BASE_URL}avatarz-logo.png`}
+            alt="Avatarz"
+            className="h-36"
+          />
         </Link>
       </header>
 
