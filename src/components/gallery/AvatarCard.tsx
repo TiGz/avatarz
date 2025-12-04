@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { Generation } from '@/types'
-import { Download, Loader2, Eye } from 'lucide-react'
+import { Download, Loader2, Eye, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface AvatarCardProps {
@@ -8,9 +8,10 @@ interface AvatarCardProps {
   index: number
   onView: (generation: Generation) => void
   onDownload: (generation: Generation) => void
+  onDelete?: (generation: Generation) => void
 }
 
-export function AvatarCard({ generation, index, onView, onDownload }: AvatarCardProps) {
+export function AvatarCard({ generation, index, onView, onDownload, onDelete }: AvatarCardProps) {
   const formatStyle = (style: string) => {
     return style.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
   }
@@ -56,6 +57,19 @@ export function AvatarCard({ generation, index, onView, onDownload }: AvatarCard
         >
           <Download className="h-5 w-5" />
         </Button>
+        {onDelete && (
+          <Button
+            size="icon"
+            variant="secondary"
+            className="h-10 w-10 hover:bg-red-600 hover:text-white"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(generation)
+            }}
+          >
+            <Trash2 className="h-5 w-5" />
+          </Button>
+        )}
       </div>
 
       {/* Info footer */}

@@ -118,6 +118,19 @@ const CROP_TYPES: CropDefinition[] = [
 const PLACEMENT_MAP = new Map(NAME_PLACEMENTS.map(p => [p.id, p]))
 const CROP_MAP = new Map(CROP_TYPES.map(c => [c.id, c]))
 
+// Age modification prompts
+const AGE_PROMPTS: Record<string, string> = {
+  normal: '',
+  younger: 'Make the person appear younger with youthful features.',
+  older: 'Make the person appear older with mature features.',
+}
+
+// Background handling prompts
+const BACKGROUND_PROMPTS = {
+  remove: 'Replace the background with something neutral or style-appropriate that complements the overall aesthetic.',
+  keep: 'Keep the original background scene but transform it to match the art style.',
+}
+
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
@@ -133,6 +146,10 @@ interface GenerateAvatarRequest {
   inputPhotoId?: string
   inputPhotoPath?: string
   isPublic?: boolean
+  // Generation options (standard mode only)
+  keepBackground?: boolean
+  ageModification?: 'normal' | 'younger' | 'older'
+  customisationText?: string
 }
 
 interface GeminiResponse {
@@ -254,6 +271,25 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
       if (!/^[a-zA-Z0-9\s\-.,!]+$/.test(req.customPlacement)) {
         throw new Error('Custom placement contains invalid characters')
       }
+    }
+  }
+
+  // Validate new generation options
+  if (req.keepBackground !== undefined && typeof req.keepBackground !== 'boolean') {
+    throw new Error('keepBackground must be a boolean')
+  }
+
+  if (req.ageModification && !['normal', 'younger', 'older'].includes(req.ageModification)) {
+    throw new Error('Invalid age modification')
+  }
+
+  if (req.customisationText) {
+    if (typeof req.customisationText !== 'string' || req.customisationText.length > 150) {
+      throw new Error('Customisation text must be under 150 characters')
+    }
+    // Reuse existing regex pattern for allowed characters
+    if (!/^[a-zA-Z0-9\s\-.,!?'"():;]+$/.test(req.customisationText)) {
+      throw new Error('Customisation text contains invalid characters')
     }
   }
 
@@ -484,7 +520,33 @@ Deno.serve(async (req) => {
       namePrompt = `Include the name "${validatedReq.name}" ${placementPrompt}.`
     }
 
-    const prompt = `${stylePrompt} ${cropPrompt} ${namePrompt} Keep the original face recognizable and maintain their identity. High quality output.`.trim()
+    // Build prompt parts array for new construction order
+    const promptParts: string[] = []
+
+    // Style prompt first
+    promptParts.push(stylePrompt)
+
+    // Age modification
+    const agePrompt = AGE_PROMPTS[validatedReq.ageModification || 'normal']
+    if (agePrompt) promptParts.push(agePrompt)
+
+    // Background (always add - remove gets explicit replacement instruction)
+    const bgPrompt = validatedReq.keepBackground ? BACKGROUND_PROMPTS.keep : BACKGROUND_PROMPTS.remove
+    promptParts.push(bgPrompt)
+
+    // Custom text (user's additional customisation)
+    if (validatedReq.customisationText?.trim()) {
+      promptParts.push(validatedReq.customisationText.trim())
+    }
+
+    // Crop and name
+    promptParts.push(cropPrompt)
+    if (namePrompt) promptParts.push(namePrompt)
+
+    // System suffix
+    promptParts.push('Keep the original face recognizable and maintain their identity. High quality output.')
+
+    const prompt = promptParts.join(' ').trim()
 
     console.log('Prompt:', prompt)
 

@@ -7,11 +7,50 @@ import { AvatarCard } from '@/components/gallery/AvatarCard'
 import { AvatarModal } from '@/components/gallery/AvatarModal'
 import { Generation } from '@/types'
 import { Sparkles, ArrowLeft, RefreshCw, Loader2 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 export function GalleryPage() {
   const navigate = useNavigate()
-  const { generations, loading, downloadAvatar, refresh } = useGenerations()
+  const { generations, loading, downloadAvatar, deleteGeneration, refresh } = useGenerations()
   const [selectedGeneration, setSelectedGeneration] = useState<Generation | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Generation | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDeleteFromCard = (generation: Generation) => {
+    setDeleteTarget(generation)
+  }
+
+  const handleDeleteFromModal = async (generation: Generation): Promise<boolean> => {
+    setDeleting(true)
+    const success = await deleteGeneration(generation.id)
+    setDeleting(false)
+    if (success) {
+      setSelectedGeneration(null)
+    }
+    return success
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    const success = await deleteGeneration(deleteTarget.id)
+    setDeleting(false)
+    if (success) {
+      setDeleteTarget(null)
+      if (selectedGeneration?.id === deleteTarget.id) {
+        setSelectedGeneration(null)
+      }
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black">
@@ -96,6 +135,7 @@ export function GalleryPage() {
                   index={index}
                   onView={setSelectedGeneration}
                   onDownload={downloadAvatar}
+                  onDelete={handleDeleteFromCard}
                 />
               ))}
             </div>
@@ -109,8 +149,32 @@ export function GalleryPage() {
           generation={selectedGeneration}
           onClose={() => setSelectedGeneration(null)}
           onDownload={downloadAvatar}
+          onDelete={handleDeleteFromModal}
+          deleting={deleting}
         />
       )}
+
+      {/* Delete confirmation dialog for card deletions */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Avatar?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this avatar. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

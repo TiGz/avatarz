@@ -16,11 +16,17 @@ const createInitialState = (options?: AvatarOptions | null): WizardState => ({
   customPlacement: '',
   generatedImage: null,
   isPublic: true,
+  // Generation options (standard mode only)
+  keepBackground: false,
+  ageModification: 'normal',
+  customTextEnabled: false,
+  customText: '',
 })
 
 export function useWizard(options?: AvatarOptions | null) {
   const [step, setStep] = useState(0)
   const [state, setState] = useState<WizardState>(() => createInitialState(options))
+  const [shouldAutoGenerate, setShouldAutoGenerate] = useState(false)
 
   // Check if current category is "custom" (skips style selection)
   const isCustomCategory = state.category === 'custom'
@@ -75,6 +81,19 @@ export function useWizard(options?: AvatarOptions | null) {
     setState(createInitialState(options))
   }
 
+  // Go back to Generate step to regenerate with same settings
+  const regenerate = () => {
+    // Clear the previous generated image and go to Generate step
+    setState((prev) => ({ ...prev, generatedImage: null }))
+    setShouldAutoGenerate(true)
+    setStep(5) // Generate step
+  }
+
+  // Clear the auto-generate flag after it's been consumed
+  const clearAutoGenerate = () => {
+    setShouldAutoGenerate(false)
+  }
+
   return {
     step,
     state,
@@ -83,6 +102,9 @@ export function useWizard(options?: AvatarOptions | null) {
     goToStep,
     updateState,
     reset,
+    regenerate,
+    shouldAutoGenerate,
+    clearAutoGenerate,
     isCustomCategory,
   }
 }

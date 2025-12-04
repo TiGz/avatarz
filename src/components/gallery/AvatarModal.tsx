@@ -1,17 +1,39 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Generation } from '@/types'
-import { X, Download, Calendar, Palette, Crop, Type, Loader2 } from 'lucide-react'
+import { X, Download, Calendar, Palette, Crop, Type, Loader2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface AvatarModalProps {
   generation: Generation | null
   onClose: () => void
   onDownload: (generation: Generation) => void
+  onDelete?: (generation: Generation) => Promise<boolean>
+  deleting?: boolean
 }
 
-export function AvatarModal({ generation, onClose, onDownload }: AvatarModalProps) {
+export function AvatarModal({ generation, onClose, onDownload, onDelete, deleting = false }: AvatarModalProps) {
   const [fullLoaded, setFullLoaded] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+  const handleDelete = async () => {
+    if (!generation || !onDelete) return
+    const success = await onDelete(generation)
+    if (success) {
+      setShowDeleteConfirm(false)
+      onClose()
+    }
+  }
 
   // Reset loading state when generation changes
   useEffect(() => {
@@ -146,17 +168,51 @@ export function AvatarModal({ generation, onClose, onDownload }: AvatarModalProp
                 </div>
               )}
 
-              {/* Download button */}
-              <Button
-                onClick={() => onDownload(generation)}
-                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </Button>
+              {/* Action buttons */}
+              <div className="space-y-2">
+                <Button
+                  onClick={() => onDownload(generation)}
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download
+                </Button>
+                {onDelete && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </motion.div>
+
+        {/* Delete confirmation dialog */}
+        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Avatar?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete this avatar. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                disabled={deleting}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </motion.div>
     </AnimatePresence>
   )

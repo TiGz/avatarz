@@ -1,9 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { WizardHook } from '@/hooks/useWizard'
 import { useStylesForCategory } from '@/hooks/useStylesForCategory'
-import { AvatarOptions } from '@/types'
-import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
+import { usePublicAvatarsByStyle } from '@/hooks/usePublicAvatarsByStyle'
+import { AvatarOptions, StyleOption } from '@/types'
+import { ArrowLeft, ArrowRight, Loader2, Info } from 'lucide-react'
+import { PromptModal } from '../PromptModal'
 
 interface StyleStepProps {
   wizard: WizardHook
@@ -12,12 +14,19 @@ interface StyleStepProps {
 
 export function StyleStep({ wizard, options }: StyleStepProps) {
   const { state, updateState, nextStep, prevStep } = wizard
+  const [promptModalStyle, setPromptModalStyle] = useState<StyleOption | null>(null)
 
   // Lazy-load styles for the selected category
   const { styles: categoryStyles, loading, error } = useStylesForCategory(state.category)
 
   // Get current category label for display
   const currentCategory = options?.categories.find(c => c.id === state.category)
+
+  // Get the currently selected style object
+  const selectedStyle = categoryStyles.find(s => s.id === state.style) || null
+
+  // Fetch examples for the selected style
+  const { examples, loading: examplesLoading } = usePublicAvatarsByStyle(state.style)
 
   // Auto-select first style when styles load and none selected
   useEffect(() => {
@@ -88,6 +97,61 @@ export function StyleStep({ wizard, options }: StyleStepProps) {
           <p className="text-gray-400">No styles available for this category</p>
         </div>
       )}
+
+      {/* Examples Preview Section */}
+      {selectedStyle && (
+        <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-white font-medium flex items-center gap-2">
+              <span className="text-xl">{selectedStyle.emoji}</span>
+              {selectedStyle.label} Examples
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPromptModalStyle(selectedStyle)}
+              className="text-gray-400 hover:text-white hover:bg-white/10"
+            >
+              <Info className="h-4 w-4 mr-1" />
+              View Prompt
+            </Button>
+          </div>
+
+          {examplesLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+            </div>
+          ) : examples.length > 0 ? (
+            <div className="flex gap-3 justify-center">
+              {examples.map((example) => (
+                <div
+                  key={example.id}
+                  className="w-32 h-32 rounded-lg overflow-hidden bg-black/20"
+                >
+                  <img
+                    src={example.thumbnailUrl}
+                    alt={`${selectedStyle.label} example`}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-6 text-sm">
+              No examples yet for this style
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Prompt Modal */}
+      <PromptModal
+        isOpen={promptModalStyle !== null}
+        onClose={() => setPromptModalStyle(null)}
+        styleName={promptModalStyle?.label || ''}
+        prompt={promptModalStyle?.prompt || ''}
+      />
 
       <div className="flex justify-center gap-4 pt-4">
         <Button

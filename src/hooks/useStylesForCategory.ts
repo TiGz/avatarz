@@ -39,7 +39,7 @@ export function useStylesForCategory(categoryId: string | null): UseStylesForCat
       try {
         const { data, error: fetchError } = await supabase
           .from('styles')
-          .select('id, category_id, label, emoji, sort_order')
+          .select('id, category_id, label, emoji, sort_order, prompt')
           .eq('category_id', categoryId)
           .eq('is_active', true)
           .order('sort_order')
@@ -53,6 +53,7 @@ export function useStylesForCategory(categoryId: string | null): UseStylesForCat
           categoryId: row.category_id,
           label: row.label,
           emoji: row.emoji,
+          prompt: row.prompt,
         }))
 
         // Cache the result

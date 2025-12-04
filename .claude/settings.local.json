@@ -47,7 +47,9 @@
       "Bash(supabase db execute:*)",
       "Bash(npx supabase sql:*)",
       "Bash(psql:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npx supabase db execute:*)",
+      "Bash(curl -s \"https://ucgabgrineaweqpjripj.supabase.co/functions/v1/generate-avatar\")"
     ],
     "deny": [],
     "ask": []

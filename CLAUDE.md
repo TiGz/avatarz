@@ -222,7 +222,7 @@ Calculated from `usageMetadata` in Gemini response.
 # Development
 npm run dev
 
-# Build
+# Build (use this to check for type errors, don't run dev server)
 npm run build
 
 # Supabase

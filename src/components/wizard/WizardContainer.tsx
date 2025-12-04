@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { useWizard } from '@/hooks/useWizard'
 import { useAvatarOptions } from '@/hooks/useAvatarOptions'
+import { useStylesForCategory } from '@/hooks/useStylesForCategory'
 import { StepIndicator } from './StepIndicator'
 import { CaptureStep } from './steps/CaptureStep'
 import { CategoryStep } from './steps/CategoryStep'
@@ -19,6 +20,10 @@ const CUSTOM_STEPS = ['Capture', 'Category', 'Generate', 'Download']
 export function WizardContainer() {
   const { options, loading } = useAvatarOptions()
   const wizard = useWizard(options)
+
+  // Fetch styles for the selected category to pass to GenerateStep
+  const { styles } = useStylesForCategory(wizard.state.category)
+  const selectedStyle = styles.find(s => s.id === wizard.state.style) || null
 
   if (loading) {
     return (
@@ -58,7 +63,7 @@ export function WizardContainer() {
       case 4:
         return <NameStep wizard={wizard} options={options} />
       case 5:
-        return <GenerateStep wizard={wizard} />
+        return <GenerateStep wizard={wizard} selectedStyle={selectedStyle} />
       case 6:
         return <DownloadStep wizard={wizard} />
       default:

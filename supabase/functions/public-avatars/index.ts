@@ -9,8 +9,7 @@ const corsHeaders = {
 interface PublicAvatar {
   avatar_id: string
   thumbnail_path: string
-  style: string
-  created_at: string
+  avatar_style: string
 }
 
 Deno.serve(async (req) => {
@@ -28,10 +27,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Parse count from query params (default 3, max 10)
+    // Parse query params
     const url = new URL(req.url)
     const countParam = url.searchParams.get('count')
     const count = Math.min(Math.max(parseInt(countParam || '3', 10) || 3, 1), 10)
+    const styleId = url.searchParams.get('style_id') // Optional style filter
 
     // Create admin client to generate signed URLs
     const supabaseAdmin = createClient(
@@ -39,10 +39,10 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Call RPC function to get random public avatars
+    // Call RPC function to get random public avatars (optionally filtered by style)
     const { data: avatars, error: rpcError } = await supabaseAdmin.rpc(
-      'get_random_public_avatars',
-      { count }
+      'get_random_public_avatars_by_style',
+      { p_count: count, p_style_id: styleId }
     )
 
     if (rpcError) {
@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
         return {
           id: avatar.avatar_id,
           thumbnailUrl: signedUrlData?.signedUrl || null,
-          style: avatar.style,
+          style: avatar.avatar_style,
         }
       })
     )

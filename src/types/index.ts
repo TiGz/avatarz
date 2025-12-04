@@ -11,6 +11,7 @@ export interface StyleOption {
   categoryId: string
   label: string
   emoji: string
+  prompt: string
 }
 
 export interface NamePlacementOption {
@@ -45,6 +46,11 @@ export interface WizardState {
   customPlacement: string
   generatedImage: string | null
   isPublic: boolean
+  // Generation options (standard mode only)
+  keepBackground: boolean
+  ageModification: 'normal' | 'younger' | 'older'
+  customTextEnabled: boolean
+  customText: string
 }
 
 // API request/response types

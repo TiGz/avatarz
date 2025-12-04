@@ -1,22 +1,30 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { Input } from '@/components/ui/input'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Checkbox } from '@/components/ui/checkbox'
 import { WizardHook } from '@/hooks/useWizard'
 import { useQuota } from '@/hooks/useQuota'
 import { QuotaDisplay } from '@/components/ui/QuotaDisplay'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Sparkles, RefreshCw, Loader2, AlertCircle, Lock } from 'lucide-react'
+import { ArrowLeft, Sparkles, RefreshCw, Loader2, AlertCircle, Lock, Eye } from 'lucide-react'
 import { toast } from 'sonner'
+import { StyleOption } from '@/types'
+import { GeneratePromptPreview } from '../GeneratePromptPreview'
 
 interface GenerateStepProps {
   wizard: WizardHook
+  selectedStyle?: StyleOption | null
 }
 
-export function GenerateStep({ wizard }: GenerateStepProps) {
-  const { state, updateState, nextStep, prevStep, isCustomCategory } = wizard
+export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
+  const { state, updateState, nextStep, prevStep, isCustomCategory, shouldAutoGenerate, clearAutoGenerate } = wizard
   const { quota, updateQuota } = useQuota()
   const [status, setStatus] = useState<'idle' | 'generating' | 'error' | 'limit_reached'>('idle')
   const [progress, setProgress] = useState(0)
+  const [showPromptPreview, setShowPromptPreview] = useState(false)
+  const [hasAutoStarted, setHasAutoStarted] = useState(false)
 
   // Check if at limit
   useEffect(() => {
@@ -24,6 +32,21 @@ export function GenerateStep({ wizard }: GenerateStepProps) {
       setStatus('limit_reached')
     }
   }, [quota])
+
+  // Auto-start generation when coming from regenerate
+  useEffect(() => {
+    if (shouldAutoGenerate && !hasAutoStarted && status === 'idle') {
+      // Check quota before auto-starting
+      if (quota && quota.remaining === 0 && !quota.is_admin) {
+        setStatus('limit_reached')
+        clearAutoGenerate()
+        return
+      }
+      setHasAutoStarted(true)
+      clearAutoGenerate()
+      generate()
+    }
+  }, [shouldAutoGenerate, hasAutoStarted, status, quota])
 
   useEffect(() => {
     if (status === 'generating') {
@@ -73,6 +96,10 @@ export function GenerateStep({ wizard }: GenerateStepProps) {
             inputPhotoId: (state as any).inputPhotoId,
             inputPhotoPath: (state as any).inputPhotoPath,
             isPublic: state.isPublic,
+            // New generation options (only for standard mode)
+            keepBackground: !isCustomCategory ? state.keepBackground : undefined,
+            ageModification: !isCustomCategory ? state.ageModification : undefined,
+            customisationText: !isCustomCategory && state.customTextEnabled ? state.customText : undefined,
           }),
         }
       )
@@ -371,6 +398,105 @@ export function GenerateStep({ wizard }: GenerateStepProps) {
         </div>
       </div>
 
+      {/* Generation Options */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 max-w-md mx-auto space-y-4">
+        {/* Background Option */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-white/80">Background</label>
+          <ToggleGroup
+            type="single"
+            value={state.keepBackground ? 'keep' : 'remove'}
+            onValueChange={(v) => v && updateState({ keepBackground: v === 'keep' })}
+            className="justify-start"
+          >
+            <ToggleGroupItem
+              value="remove"
+              className="text-xs px-3 py-1.5 data-[state=on]:bg-purple-500/30 data-[state=on]:text-purple-200 border border-white/10 data-[state=on]:border-purple-400/50"
+            >
+              Replace
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="keep"
+              className="text-xs px-3 py-1.5 data-[state=on]:bg-purple-500/30 data-[state=on]:text-purple-200 border border-white/10 data-[state=on]:border-purple-400/50"
+            >
+              Keep & Style
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
+        {/* Age Option */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-white/80">Age</label>
+          <ToggleGroup
+            type="single"
+            value={state.ageModification}
+            onValueChange={(v) => v && updateState({ ageModification: v as 'normal' | 'younger' | 'older' })}
+            className="justify-start"
+          >
+            <ToggleGroupItem
+              value="younger"
+              className="text-xs px-3 py-1.5 data-[state=on]:bg-purple-500/30 data-[state=on]:text-purple-200 border border-white/10 data-[state=on]:border-purple-400/50"
+            >
+              Younger
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="normal"
+              className="text-xs px-3 py-1.5 data-[state=on]:bg-purple-500/30 data-[state=on]:text-purple-200 border border-white/10 data-[state=on]:border-purple-400/50"
+            >
+              Normal
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="older"
+              className="text-xs px-3 py-1.5 data-[state=on]:bg-purple-500/30 data-[state=on]:text-purple-200 border border-white/10 data-[state=on]:border-purple-400/50"
+            >
+              Older
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
+        {/* Customisation */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="customise"
+              checked={state.customTextEnabled}
+              onCheckedChange={(checked) => updateState({ customTextEnabled: !!checked })}
+              className="border-white/30 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500"
+            />
+            <label htmlFor="customise" className="text-sm font-medium text-white/80 cursor-pointer">
+              Add customisation
+            </label>
+          </div>
+          {state.customTextEnabled && (
+            <div>
+              <Input
+                placeholder="e.g., wearing red sunglasses"
+                value={state.customText}
+                onChange={(e) => updateState({ customText: e.target.value })}
+                maxLength={150}
+                className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 text-sm"
+              />
+              <p className="text-xs text-white/40 text-right mt-1">
+                {state.customText.length}/150
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Preview Prompt Button */}
+        {selectedStyle && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPromptPreview(true)}
+            className="w-full border-white/20 text-white/70 hover:text-white hover:bg-white/10"
+          >
+            <Eye className="mr-2 h-4 w-4" />
+            Preview Full Prompt
+          </Button>
+        )}
+      </div>
+
       <div className="flex justify-center gap-4">
         <Button
           variant="outline"
@@ -390,6 +516,16 @@ export function GenerateStep({ wizard }: GenerateStepProps) {
           Generate Avatar
         </Button>
       </div>
+
+      {/* Prompt Preview Modal */}
+      {selectedStyle && (
+        <GeneratePromptPreview
+          isOpen={showPromptPreview}
+          onClose={() => setShowPromptPreview(false)}
+          state={state}
+          stylePrompt={selectedStyle.prompt}
+        />
+      )}
     </div>
   )
 }

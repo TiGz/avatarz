@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { WizardHook } from '@/hooks/useWizard'
-import { Download, RefreshCw, Images } from 'lucide-react'
+import { Download, RefreshCw, Images, RotateCw } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface DownloadStepProps {
@@ -10,7 +10,7 @@ interface DownloadStepProps {
 }
 
 export function DownloadStep({ wizard }: DownloadStepProps) {
-  const { state, reset } = wizard
+  const { state, reset, regenerate } = wizard
   const [downloading, setDownloading] = useState(false)
 
   const generateFilename = () => {
@@ -99,6 +99,15 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
         >
           <RefreshCw className="mr-2 h-4 w-4" />
           Create Another
+        </Button>
+        <Button
+          variant="outline"
+          onClick={regenerate}
+          className="border-white/20 text-white hover:bg-white/10"
+          title="Generate another avatar with the same style and settings"
+        >
+          <RotateCw className="mr-2 h-4 w-4" />
+          Generate Again
         </Button>
         <Link to="/gallery">
           <Button

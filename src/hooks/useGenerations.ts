@@ -71,6 +71,46 @@ export function useGenerations() {
     return data?.signedUrl || null
   }
 
+  const deleteGeneration = async (generationId: string): Promise<boolean> => {
+    const generation = generations.find((g) => g.id === generationId)
+    if (!generation) return false
+
+    try {
+      // 1. Delete full-size avatar from storage
+      const { error: avatarError } = await supabase.storage
+        .from('avatars')
+        .remove([generation.output_storage_path])
+
+      if (avatarError) throw avatarError
+
+      // 2. Delete thumbnail if exists
+      if (generation.thumbnail_storage_path) {
+        const { error: thumbError } = await supabase.storage
+          .from('avatar-thumbnails')
+          .remove([generation.thumbnail_storage_path])
+
+        if (thumbError) console.warn('Thumbnail delete failed:', thumbError)
+      }
+
+      // 3. Delete database record
+      const { error: dbError } = await supabase
+        .from('generations')
+        .delete()
+        .eq('id', generationId)
+
+      if (dbError) throw dbError
+
+      // 4. Update local state
+      setGenerations((prev) => prev.filter((g) => g.id !== generationId))
+      toast.success('Avatar deleted')
+      return true
+    } catch (error) {
+      console.error('Error deleting generation:', error)
+      toast.error('Failed to delete avatar')
+      return false
+    }
+  }
+
   const downloadAvatar = async (generation: Generation) => {
     if (!generation.url) {
       toast.error('Avatar not available')
@@ -100,6 +140,7 @@ export function useGenerations() {
     loading,
     getSignedUrl,
     downloadAvatar,
+    deleteGeneration,
     refresh: fetchGenerations,
   }
 }
