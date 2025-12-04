@@ -61,7 +61,7 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const { email } = await req.json()
+    const { email, tier } = await req.json()
 
     if (!email || typeof email !== 'string') {
       return new Response(
@@ -70,14 +70,23 @@ serve(async (req) => {
       )
     }
 
+    // Validate tier (default to premium, only allow premium or standard)
+    const userTier = tier || 'premium'
+    if (!['premium', 'standard'].includes(userTier)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid tier. Must be premium or standard.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const normalizedEmail = email.toLowerCase().trim()
 
-    // First, add to allowlist if not already there
+    // First, add to allowlist with tier if not already there
     const { error: allowlistError } = await supabaseAdmin
       .from('allowlist')
       .upsert(
-        { email: normalizedEmail },
-        { onConflict: 'email', ignoreDuplicates: true }
+        { email: normalizedEmail, tier_id: userTier },
+        { onConflict: 'email', ignoreDuplicates: false }
       )
 
     if (allowlistError) {

@@ -2,13 +2,21 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Send, Mail, CheckCircle, AlertCircle } from 'lucide-react'
+import { Loader2, Send, Mail, CheckCircle, AlertCircle, Star, User } from 'lucide-react'
 import { toast } from 'sonner'
+
+type InviteTier = 'premium' | 'standard'
+
+const tierConfig: Record<InviteTier, { label: string; icon: React.ReactNode }> = {
+  premium: { label: 'Premium', icon: <Star className="h-4 w-4" /> },
+  standard: { label: 'Standard', icon: <User className="h-4 w-4" /> },
+}
 
 export function InviteUser() {
   const [email, setEmail] = useState('')
+  const [tier, setTier] = useState<InviteTier>('premium')
   const [sending, setSending] = useState(false)
-  const [lastResult, setLastResult] = useState<{ success: boolean; email: string } | null>(null)
+  const [lastResult, setLastResult] = useState<{ success: boolean; email: string; tier: InviteTier } | null>(null)
 
   const sendInvite = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,7 +40,7 @@ export function InviteUser() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ email: email.toLowerCase().trim() }),
+          body: JSON.stringify({ email: email.toLowerCase().trim(), tier }),
         }
       )
 
@@ -42,12 +50,12 @@ export function InviteUser() {
         throw new Error(result.error || 'Failed to send invite')
       }
 
-      setLastResult({ success: true, email: email.toLowerCase().trim() })
-      toast.success(`Invite sent to ${email}`)
+      setLastResult({ success: true, email: email.toLowerCase().trim(), tier })
+      toast.success(`Invite sent to ${email} as ${tierConfig[tier].label}`)
       setEmail('')
     } catch (error) {
       console.error('Invite error:', error)
-      setLastResult({ success: false, email: email.toLowerCase().trim() })
+      setLastResult({ success: false, email: email.toLowerCase().trim(), tier })
       toast.error(error instanceof Error ? error.message : 'Failed to send invite')
     } finally {
       setSending(false)
@@ -63,32 +71,59 @@ export function InviteUser() {
         </p>
       </div>
 
-      <form onSubmit={sendInvite} className="flex gap-2">
-        <div className="relative flex-1">
-          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            type="email"
-            placeholder="Enter email to invite"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={sending}
-            className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500"
-          />
+      <form onSubmit={sendInvite} className="space-y-3">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              type="email"
+              placeholder="Enter email to invite"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={sending}
+              className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+            />
+          </div>
+          <Button
+            type="submit"
+            disabled={sending || !email.trim()}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+          >
+            {sending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-2" />
+                Invite
+              </>
+            )}
+          </Button>
         </div>
-        <Button
-          type="submit"
-          disabled={sending || !email.trim()}
-          className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-        >
-          {sending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <>
-              <Send className="h-4 w-4 mr-2" />
-              Invite
-            </>
-          )}
-        </Button>
+
+        {/* Tier selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-400">Invite as:</span>
+          <div className="flex gap-1">
+            {(['premium', 'standard'] as InviteTier[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTier(t)}
+                disabled={sending}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  tier === t
+                    ? t === 'premium'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                      : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                    : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                {tierConfig[t].icon}
+                {tierConfig[t].label}
+              </button>
+            ))}
+          </div>
+        </div>
       </form>
 
       {lastResult && (
@@ -104,7 +139,7 @@ export function InviteUser() {
           )}
           <span className={`text-sm ${lastResult.success ? 'text-green-300' : 'text-red-300'}`}>
             {lastResult.success
-              ? `Magic link sent to ${lastResult.email}`
+              ? `Magic link sent to ${lastResult.email} (${tierConfig[lastResult.tier].label})`
               : `Failed to invite ${lastResult.email}`
             }
           </span>
