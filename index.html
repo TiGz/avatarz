@@ -10,6 +10,42 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Handle Supabase auth callback before React loads
+      // Supports both #access_token= and #/access_token= formats (HashRouter compat)
+      (function() {
+        var hash = window.location.hash;
+        if (hash && hash.includes('access_token=')) {
+          // Remove leading #/ or # to get params
+          var paramStr = hash.replace(/^#\/?/, '');
+          var params = new URLSearchParams(paramStr);
+          var accessToken = params.get('access_token');
+          var refreshToken = params.get('refresh_token');
+          var expiresIn = params.get('expires_in');
+          var tokenType = params.get('token_type');
+
+          if (accessToken && refreshToken) {
+            // Calculate expiry
+            var expiresAt = Math.floor(Date.now() / 1000) + parseInt(expiresIn || '3600');
+
+            // Build session object matching Supabase format
+            var session = {
+              access_token: accessToken,
+              refresh_token: refreshToken,
+              expires_in: parseInt(expiresIn || '3600'),
+              expires_at: expiresAt,
+              token_type: tokenType || 'bearer'
+            };
+
+            // Store in localStorage with Supabase's expected key
+            localStorage.setItem('avatarz-auth', JSON.stringify(session));
+
+            // Clean redirect to app root (removes auth params from URL)
+            window.location.replace(window.location.pathname + '#/');
+          }
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
