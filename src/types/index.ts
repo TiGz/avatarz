@@ -121,10 +121,44 @@ export interface Generation {
 
 // Quota types
 export interface UserQuota {
+  tier: string
   limit: number
   used: number
   remaining: number
   is_admin: boolean
+}
+
+// Invite quota types
+export interface InviteQuota {
+  can_create: boolean
+  tier: string
+  limit?: number
+  used?: number
+  remaining?: number
+  reason?: string
+}
+
+// Invite code types
+export interface InviteCode {
+  invite_id: string
+  invite_code: string
+  invite_created_at: string
+  invite_expires_at: string
+  invite_is_redeemed: boolean
+  invite_redeemed_email: string | null
+  invite_redeemed_at: string | null
+}
+
+// User tier types
+export type UserTier = 'admin' | 'premium' | 'standard'
+
+export interface UserTierInfo {
+  id: string
+  label: string
+  daily_generation_limit: number
+  daily_invite_limit: number
+  can_create_invites: boolean
+  sort_order: number
 }
 
 // Admin stats types (prefixed column names from SQL function)
@@ -132,6 +166,7 @@ export interface UserStats {
   stat_user_id: string
   stat_email: string
   stat_is_admin: boolean
+  stat_tier: string
   stat_total_generations: number
   stat_total_cost: number
   stat_generations_today: number

@@ -1,15 +1,24 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
-import { Sparkles, LogOut, Settings, Image, FolderOpen } from 'lucide-react'
+import { useQuota } from '@/hooks/useQuota'
+import { LogOut, Settings, Image, FolderOpen, Users, X, Sparkles } from 'lucide-react'
+import { Header } from '@/components/ui/Header'
 import { QuotaDisplay } from '@/components/ui/QuotaDisplay'
 import { PublicAvatarShowcase } from '@/components/ui/PublicAvatarShowcase'
+import { InviteManager } from '@/components/invite/InviteManager'
 
 export function HomePage() {
   const { user, signOut } = useAuth()
   const { isAdmin } = useAdmin()
+  const { quota } = useQuota()
+  const [showInvitePanel, setShowInvitePanel] = useState(false)
+
+  // Check if user can invite (premium or admin)
+  const canInvite = quota?.tier === 'premium' || quota?.tier === 'admin'
 
   const handleSignOut = async () => {
     try {
@@ -21,43 +30,69 @@ export function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black">
-      {/* Header */}
-      <header className="p-4 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-bold text-white">Avatarz</span>
-        </div>
-        <div className="flex items-center gap-1 sm:gap-2">
-          <QuotaDisplay compact />
-          <Link to="/photos" className="hidden sm:block">
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
-              <FolderOpen className="h-5 w-5" />
-            </Button>
-          </Link>
-          <Link to="/gallery">
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
-              <Image className="h-5 w-5" />
-            </Button>
-          </Link>
-          {isAdmin && (
-            <Link to="/admin">
-              <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
-                <Settings className="h-5 w-5" />
-              </Button>
-            </Link>
-          )}
+      <Header>
+        <QuotaDisplay compact />
+        <Link to="/photos" className="hidden sm:block">
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
+            <FolderOpen className="h-5 w-5" />
+          </Button>
+        </Link>
+        <Link to="/gallery">
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
+            <Image className="h-5 w-5" />
+          </Button>
+        </Link>
+        {canInvite && (
           <Button
             variant="ghost"
             size="icon"
-            onClick={handleSignOut}
+            onClick={() => setShowInvitePanel(!showInvitePanel)}
             className="text-white hover:bg-white/10"
           >
-            <LogOut className="h-5 w-5" />
+            <Users className="h-5 w-5" />
           </Button>
-        </div>
-      </header>
+        )}
+        {isAdmin && (
+          <Link to="/admin">
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
+              <Settings className="h-5 w-5" />
+            </Button>
+          </Link>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleSignOut}
+          className="text-white hover:bg-white/10"
+        >
+          <LogOut className="h-5 w-5" />
+        </Button>
+      </Header>
+
+      {/* Invite Panel (slides down when active) */}
+      {showInvitePanel && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="px-4 pb-4"
+        >
+          <div className="max-w-md mx-auto bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">Invite Friends</h2>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowInvitePanel(false)}
+                className="text-gray-400 hover:text-white hover:bg-white/10 h-8 w-8"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <InviteManager />
+          </div>
+        </motion.div>
+      )}
 
       {/* Main Content */}
       <main className="flex flex-col items-center px-4 py-8">

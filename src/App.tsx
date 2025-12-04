@@ -7,6 +7,7 @@ import { AdminPage } from '@/pages/AdminPage'
 import { WizardPage } from '@/pages/WizardPage'
 import { PhotoLibraryPage } from '@/pages/PhotoLibraryPage'
 import { GalleryPage } from '@/pages/GalleryPage'
+import { InviteRedemptionPage } from '@/pages/InviteRedemptionPage'
 import { Loader2 } from 'lucide-react'
 
 function AppRoutes() {
@@ -41,6 +42,10 @@ function AppRoutes() {
       <Route
         path="/gallery"
         element={user ? <GalleryPage /> : <Navigate to="/" />}
+      />
+      <Route
+        path="/invite/:code"
+        element={<InviteRedemptionPage />}
       />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

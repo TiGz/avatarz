@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { useGenerations } from '@/hooks/useGenerations'
 import { AvatarCard } from '@/components/gallery/AvatarCard'
 import { AvatarModal } from '@/components/gallery/AvatarModal'
 import { Generation } from '@/types'
-import { Sparkles, ArrowLeft, RefreshCw, Loader2 } from 'lucide-react'
+import { Sparkles, RefreshCw, Loader2, ArrowLeft } from 'lucide-react'
+import { Header } from '@/components/ui/Header'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,27 +55,16 @@ export function GalleryPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black">
-      {/* Header */}
-      <header className="p-4 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <Link to="/">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-          </Link>
-          <span className="font-bold text-white">My Gallery</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={refresh}
-            className="text-white hover:bg-white/10"
-          >
-            <RefreshCw className="h-5 w-5" />
-          </Button>
-        </div>
-      </header>
+      <Header title="My Gallery">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={refresh}
+          className="text-white hover:bg-white/10"
+        >
+          <RefreshCw className="h-5 w-5" />
+        </Button>
+      </Header>
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-8">

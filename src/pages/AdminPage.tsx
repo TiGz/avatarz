@@ -1,13 +1,13 @@
 import { useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Button } from '@/components/ui/button'
 import { useAdmin } from '@/hooks/useAdmin'
 import { AllowlistManager } from '@/components/admin/AllowlistManager'
 import { InviteUser } from '@/components/admin/InviteUser'
 import { RecentGenerations } from '@/components/admin/RecentGenerations'
 import { UserStats } from '@/components/admin/UserStats'
-import { ArrowLeft, Sparkles, Shield, UserPlus, History, BarChart3, Users } from 'lucide-react'
+import { Shield, UserPlus, History, BarChart3, Users } from 'lucide-react'
+import { Header } from '@/components/ui/Header'
 
 type Tab = 'allowlist' | 'invite' | 'generations' | 'stats'
 
@@ -42,20 +42,7 @@ export function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black">
-      {/* Header */}
-      <header className="p-4 flex items-center gap-4">
-        <Link to="/">
-          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </Link>
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-bold text-white">Avatarz</span>
-        </div>
-      </header>
+      <Header showBack />
 
       {/* Main Content */}
       <main className="px-4 py-8 max-w-4xl mx-auto">

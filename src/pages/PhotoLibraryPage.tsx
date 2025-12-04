@@ -1,10 +1,11 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
 import { usePhotos } from '@/hooks/usePhotos'
 import { PhotoGrid } from '@/components/photos/PhotoGrid'
-import { Sparkles, ArrowLeft, Upload, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Upload, RefreshCw } from 'lucide-react'
+import { Header } from '@/components/ui/Header'
 import { useRef } from 'react'
 import { toast } from 'sonner'
 
@@ -43,27 +44,16 @@ export function PhotoLibraryPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black">
-      {/* Header */}
-      <header className="p-4 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <Link to="/">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-          </Link>
-          <span className="font-bold text-white">My Photos</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={refresh}
-            className="text-white hover:bg-white/10"
-          >
-            <RefreshCw className="h-5 w-5" />
-          </Button>
-        </div>
-      </header>
+      <Header title="My Photos">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={refresh}
+          className="text-white hover:bg-white/10"
+        >
+          <RefreshCw className="h-5 w-5" />
+        </Button>
+      </Header>
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 py-8">

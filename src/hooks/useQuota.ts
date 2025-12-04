@@ -25,6 +25,7 @@ export function useQuota() {
       console.error('Error fetching quota:', error)
       // Set a default quota on error
       setQuota({
+        tier: 'standard',
         limit: 20,
         used: 0,
         remaining: 20,
