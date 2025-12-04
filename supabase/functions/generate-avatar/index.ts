@@ -239,10 +239,10 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
     throw new Error('Either style or customStyle is required')
   }
 
-  // Sanitize custom style (max 500 chars for full custom prompts)
+  // Sanitize custom style (max 3000 chars for full custom prompts)
   if (req.customStyle) {
-    if (typeof req.customStyle !== 'string' || req.customStyle.length > 500) {
-      throw new Error('Custom style must be under 500 characters')
+    if (typeof req.customStyle !== 'string' || req.customStyle.length > 3000) {
+      throw new Error('Custom style must be under 3000 characters')
     }
     // Allow more characters for custom prompts (punctuation, quotes, etc.)
     if (!/^[a-zA-Z0-9\s\-.,!?'"():;]+$/.test(req.customStyle)) {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { useInviteQuota } from '@/hooks/useInviteQuota'
 import { useCreateInvite } from '@/hooks/useCreateInvite'
@@ -11,15 +11,28 @@ import {
   CheckCircle,
   Link as LinkIcon,
   Users,
-  Sparkles
+  Sparkles,
+  Info,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import { toast } from 'sonner'
+
+const INVITES_PER_PAGE = 5
 
 export function InviteManager() {
   const { quota, loading: quotaLoading, refresh: refreshQuota } = useInviteQuota()
   const { invites, loading: invitesLoading, refresh: refreshInvites } = useMyInviteCodes()
   const { createInvite, loading: creating } = useCreateInvite()
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(0)
+
+  // Pagination
+  const totalPages = Math.ceil(invites.length / INVITES_PER_PAGE)
+  const paginatedInvites = useMemo(() => {
+    const start = currentPage * INVITES_PER_PAGE
+    return invites.slice(start, start + INVITES_PER_PAGE)
+  }, [invites, currentPage])
 
   const handleCreateInvite = async () => {
     const result = await createInvite()
@@ -27,6 +40,7 @@ export function InviteManager() {
       toast.success('Invite link created!')
       refreshQuota()
       refreshInvites()
+      setCurrentPage(0) // Reset to first page to show new invite
       // Auto-copy the new invite URL
       await navigator.clipboard.writeText(result.url)
       setCopiedCode(result.code)
@@ -105,6 +119,31 @@ export function InviteManager() {
         )}
       </div>
 
+      {/* Premium user info note - only shown for premium tier (not admin) */}
+      {quota?.tier === 'premium' && (
+        <div className="relative overflow-hidden rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-950/40 via-amber-900/20 to-transparent p-4">
+          {/* Subtle decorative element */}
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+
+          <div className="relative flex gap-3">
+            <div className="flex-shrink-0 mt-0.5">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <Info className="w-4 h-4 text-amber-400" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-amber-200/90">
+                You're a Premium member
+              </p>
+              <p className="text-xs text-amber-200/60 leading-relaxed">
+                Friends you invite will join with a Standard account — 20 generations per day and no invite privileges.
+                <span className="text-amber-300/70"> Only you have Premium perks!</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Create new invite button */}
       <Button
         onClick={handleCreateInvite}
@@ -127,7 +166,12 @@ export function InviteManager() {
 
       {/* List of invites */}
       <div className="space-y-3">
-        <h4 className="text-sm font-medium text-gray-300">Your Invite Links</h4>
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-medium text-gray-300">Your Invite Links</h4>
+          {invites.length > 0 && (
+            <span className="text-xs text-gray-500">{invites.length} total</span>
+          )}
+        </div>
 
         {invitesLoading ? (
           <div className="flex items-center justify-center py-4">
@@ -139,7 +183,7 @@ export function InviteManager() {
           </div>
         ) : (
           <div className="space-y-2">
-            {invites.map((invite) => {
+            {paginatedInvites.map((invite) => {
               const expired = isExpired(invite.invite_expires_at)
               const redeemed = invite.invite_is_redeemed
               const isActive = !expired && !redeemed
@@ -216,6 +260,35 @@ export function InviteManager() {
                 </div>
               )
             })}
+
+            {/* Pagination controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="text-gray-400 hover:text-white disabled:opacity-30"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Prev
+                </Button>
+                <span className="text-xs text-gray-500">
+                  {currentPage + 1} of {totalPages}
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage >= totalPages - 1}
+                  className="text-gray-400 hover:text-white disabled:opacity-30"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

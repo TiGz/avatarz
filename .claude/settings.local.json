@@ -53,7 +53,8 @@
       "Bash(git log:*)",
       "Bash(grep:*)",
       "Bash(curl:*)",
-      "Bash(gh run list:*)"
+      "Bash(gh run list:*)",
+      "Skill(compounding-engineering:frontend-design)"
     ],
     "deny": [],
     "ask": []

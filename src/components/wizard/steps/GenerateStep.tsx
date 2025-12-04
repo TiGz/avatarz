@@ -272,7 +272,7 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
               placeholder="Describe how you want your avatar to look... Be creative! For example: 'Transform me into a steampunk inventor with brass goggles, Victorian attire, and clockwork accessories. Sepia-toned lighting with visible gears and steam in the background.'"
               value={state.customStyle}
               onChange={(e) => updateState({ customStyle: e.target.value })}
-              maxLength={500}
+              maxLength={3000}
               rows={5}
               className="w-full px-4 py-3 rounded-xl bg-white/5 border-2 border-white/10 text-white placeholder:text-gray-500 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/50 focus:outline-none resize-none"
             />
@@ -281,7 +281,7 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
                 Be descriptive! The more detail, the better the result.
               </p>
               <p className="text-gray-500">
-                {state.customStyle.length}/500
+                {state.customStyle.length}/3000
               </p>
             </div>
           </div>
