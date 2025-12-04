@@ -54,7 +54,9 @@
       "Bash(grep:*)",
       "Bash(curl:*)",
       "Bash(gh run list:*)",
-      "Skill(compounding-engineering:frontend-design)"
+      "Skill(compounding-engineering:frontend-design)",
+      "Bash(ls:*)",
+      "Bash(identify:*)"
     ],
     "deny": [],
     "ask": []

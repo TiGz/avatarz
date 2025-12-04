@@ -244,8 +244,8 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
     if (typeof req.customStyle !== 'string' || req.customStyle.length > 3000) {
       throw new Error('Custom style must be under 3000 characters')
     }
-    // Allow more characters for custom prompts (punctuation, quotes, etc.)
-    if (!/^[a-zA-Z0-9\s\-.,!?'"():;]+$/.test(req.customStyle)) {
+    // Allow broad set of printable characters for expressive prompts
+    if (!/^[\w\s\-.,!?'"():;/*#@&_=+\[\]{}|~%$^]+$/.test(req.customStyle)) {
       throw new Error('Custom style contains invalid characters')
     }
   }
