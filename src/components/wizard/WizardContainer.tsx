@@ -21,8 +21,9 @@ export function WizardContainer() {
   const { options, loading } = useAvatarOptions()
   const wizard = useWizard(options)
 
-  // Fetch styles for the selected category to pass to GenerateStep
-  const { styles } = useStylesForCategory(wizard.state.category)
+  // Only fetch styles when on Style step (2) or later - prevents HTTP requests while browsing categories
+  const shouldFetchStyles = wizard.step >= 2
+  const { styles } = useStylesForCategory(shouldFetchStyles ? wizard.state.category : null)
   const selectedStyle = styles.find(s => s.id === wizard.state.style) || null
 
   if (loading) {
