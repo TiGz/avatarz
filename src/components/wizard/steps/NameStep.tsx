@@ -2,31 +2,17 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { WizardHook } from '@/hooks/useWizard'
-import { NAME_PLACEMENTS, NamePlacement } from '@/types'
+import { AvatarOptions } from '@/types'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 
 interface NameStepProps {
   wizard: WizardHook
+  options: AvatarOptions | null
 }
 
-const placementLabels: Record<NamePlacement, string> = {
-  'graffiti': 'Graffiti',
-  'headband': 'Headband',
-  'necklace': 'Necklace',
-  'corner': 'Corner',
-  'custom': 'Custom',
-}
-
-const placementDescriptions: Record<NamePlacement, string> = {
-  'graffiti': 'Name as street art behind you',
-  'headband': 'Name on a headband',
-  'necklace': 'Name on a chain necklace',
-  'corner': 'Watermark in the corner',
-  'custom': 'Describe your own placement',
-}
-
-export function NameStep({ wizard }: NameStepProps) {
+export function NameStep({ wizard, options }: NameStepProps) {
   const { state, updateState, nextStep, prevStep } = wizard
+  const namePlacements = options?.namePlacements || []
 
   return (
     <div className="space-y-6">
@@ -82,20 +68,20 @@ export function NameStep({ wizard }: NameStepProps) {
           <div>
             <Label className="text-white mb-3 block">Placement style</Label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {NAME_PLACEMENTS.map((placement) => (
+              {namePlacements.map((placement) => (
                 <button
-                  key={placement}
-                  onClick={() => updateState({ namePlacement: placement })}
+                  key={placement.id}
+                  onClick={() => updateState({ namePlacement: placement.id })}
                   className={`
-                    p-3 rounded-xl border transition-all text-left
-                    ${state.namePlacement === placement
-                      ? 'bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-purple-500'
-                      : 'bg-white/5 border-white/10 hover:border-white/30'
+                    p-3 rounded-xl border-2 transition-all text-left
+                    ${state.namePlacement === placement.id
+                      ? 'bg-gradient-to-br from-purple-500/30 to-pink-500/30 border-purple-400 ring-2 ring-purple-400/50'
+                      : 'bg-white/5 border-white/10 hover:border-white/30 hover:bg-white/10'
                     }
                   `}
                 >
-                  <div className="text-white text-sm font-medium">{placementLabels[placement]}</div>
-                  <div className="text-gray-500 text-xs mt-1">{placementDescriptions[placement]}</div>
+                  <div className="text-white text-sm font-medium">{placement.label}</div>
+                  <div className="text-gray-500 text-xs mt-1">{placement.description}</div>
                 </button>
               ))}
             </div>

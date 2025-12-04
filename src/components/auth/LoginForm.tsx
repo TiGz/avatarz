@@ -3,16 +3,17 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { motion } from 'framer-motion'
-import { Loader2, Sparkles } from 'lucide-react'
+import { Loader2, Sparkles, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 
-type LoginStatus = 'idle' | 'checking' | 'sending' | 'sent' | 'denied' | 'error'
+type LoginStatus = 'idle' | 'checking' | 'sending' | 'code_sent' | 'verifying' | 'denied' | 'error'
 
 export function LoginForm() {
   const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
   const [status, setStatus] = useState<LoginStatus>('idle')
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleRequestCode = async (e: React.FormEvent) => {
     e.preventDefault()
     setStatus('checking')
 
@@ -35,26 +36,54 @@ export function LoginForm() {
 
       setStatus('sending')
 
-      // Send magic link
+      // Send OTP code (not magic link)
       const { error: authError } = await supabase.auth.signInWithOtp({
         email: email.toLowerCase(),
         options: {
-          emailRedirectTo: `${window.location.origin}/avatarz/#/`,
+          shouldCreateUser: true,
         },
       })
 
       if (authError) {
-        console.error('Magic link error:', authError)
-        toast.error('Failed to send magic link. Please try again.')
+        console.error('OTP error:', authError)
+        toast.error('Failed to send code. Please try again.')
         setStatus('error')
         return
       }
 
-      setStatus('sent')
+      setStatus('code_sent')
+      toast.success('Code sent! Check your email.')
     } catch (err) {
       console.error('Unexpected error:', err)
       toast.error('Something went wrong. Please try again.')
       setStatus('error')
+    }
+  }
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setStatus('verifying')
+
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: email.toLowerCase(),
+        token: code,
+        type: 'email',
+      })
+
+      if (error) {
+        console.error('Verification error:', error)
+        toast.error('Invalid or expired code. Please try again.')
+        setStatus('code_sent')
+        return
+      }
+
+      // Success - auth state change will handle redirect
+      toast.success('Welcome!')
+    } catch (err) {
+      console.error('Unexpected error:', err)
+      toast.error('Something went wrong. Please try again.')
+      setStatus('code_sent')
     }
   }
 
@@ -79,25 +108,80 @@ export function LoginForm() {
     )
   }
 
-  if (status === 'sent') {
+  // Code entry form
+  if (status === 'code_sent' || status === 'verifying') {
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="text-center p-8"
+        className="w-full max-w-sm"
       >
-        <div className="text-6xl mb-4">✨</div>
-        <h2 className="text-2xl font-bold mb-4 text-white">Check your email!</h2>
-        <p className="text-gray-300">We've sent you a magic link to sign in.</p>
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mb-4">
+            <Mail className="w-8 h-8 text-white" />
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">Check your email</h2>
+          <p className="text-gray-400 text-sm">
+            We sent a 6-digit code to<br />
+            <span className="text-white">{email}</span>
+          </p>
+        </div>
+
+        <form onSubmit={handleVerifyCode} className="space-y-4">
+          <Input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={6}
+            placeholder="000000"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+            disabled={status === 'verifying'}
+            required
+            className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 h-12 text-center text-2xl tracking-widest"
+            autoFocus
+          />
+          <Button
+            type="submit"
+            disabled={status === 'verifying' || code.length !== 6}
+            className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+          >
+            {status === 'verifying' ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Verifying...
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Verify Code
+              </>
+            )}
+          </Button>
+        </form>
+
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              setCode('')
+              setStatus('idle')
+            }}
+            className="text-gray-400 text-sm hover:text-white"
+          >
+            Use a different email
+          </button>
+        </div>
       </motion.div>
     )
   }
 
   const isLoading = status === 'checking' || status === 'sending'
 
+  // Email entry form
   return (
     <motion.form
-      onSubmit={handleSubmit}
+      onSubmit={handleRequestCode}
       className="space-y-4 w-full max-w-sm"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -124,7 +208,7 @@ export function LoginForm() {
         ) : (
           <>
             <Sparkles className="mr-2 h-4 w-4" />
-            Get Magic Link
+            Get Login Code
           </>
         )}
       </Button>

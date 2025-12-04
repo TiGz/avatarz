@@ -5,6 +5,8 @@ import { LoginPage } from '@/pages/LoginPage'
 import { HomePage } from '@/pages/HomePage'
 import { AdminPage } from '@/pages/AdminPage'
 import { WizardPage } from '@/pages/WizardPage'
+import { PhotoLibraryPage } from '@/pages/PhotoLibraryPage'
+import { GalleryPage } from '@/pages/GalleryPage'
 import { Loader2 } from 'lucide-react'
 
 function AppRoutes() {
@@ -31,6 +33,14 @@ function AppRoutes() {
       <Route
         path="/admin"
         element={user ? <AdminPage /> : <Navigate to="/" />}
+      />
+      <Route
+        path="/photos"
+        element={user ? <PhotoLibraryPage /> : <Navigate to="/" />}
+      />
+      <Route
+        path="/gallery"
+        element={user ? <GalleryPage /> : <Navigate to="/" />}
       />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

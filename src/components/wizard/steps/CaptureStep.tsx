@@ -2,7 +2,10 @@ import { useState, useRef, useCallback } from 'react'
 import Webcam from 'react-webcam'
 import { Button } from '@/components/ui/button'
 import { WizardHook } from '@/hooks/useWizard'
-import { Camera, Upload, RefreshCw, ArrowRight } from 'lucide-react'
+import { usePhotos } from '@/hooks/usePhotos'
+import { PhotoGrid } from '@/components/photos/PhotoGrid'
+import { Photo } from '@/types'
+import { Camera, Upload, RefreshCw, ArrowRight, FolderOpen, ArrowLeft, Save } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface CaptureStepProps {
@@ -10,43 +13,86 @@ interface CaptureStepProps {
 }
 
 export function CaptureStep({ wizard }: CaptureStepProps) {
-  const [mode, setMode] = useState<'select' | 'webcam' | 'upload'>('select')
+  const [mode, setMode] = useState<'select' | 'webcam' | 'upload' | 'library'>('select')
   const [cameraError, setCameraError] = useState(false)
+  const [saveToLibrary, setSaveToLibrary] = useState(true)
   const webcamRef = useRef<Webcam>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { photos, loading: photosLoading, uploadFromDataUrl, uploadPhoto } = usePhotos()
 
-  const capture = useCallback(() => {
+  const capture = useCallback(async () => {
     const imageSrc = webcamRef.current?.getScreenshot()
     if (imageSrc) {
       wizard.updateState({ imageData: imageSrc })
-    }
-  }, [wizard])
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      // Optionally save to library
+      if (saveToLibrary) {
+        toast.loading('Saving to library...')
+        const photo = await uploadFromDataUrl(imageSrc, `selfie_${Date.now()}.jpg`)
+        toast.dismiss()
+        if (photo) {
+          wizard.updateState({
+            inputPhotoId: photo.id,
+            inputPhotoPath: photo.storage_path,
+          } as any)
+          toast.success('Saved to library!')
+        }
+      }
+    }
+  }, [wizard, saveToLibrary, uploadFromDataUrl])
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Check file size (10MB limit)
     if (file.size > 10 * 1024 * 1024) {
       toast.error('File too large. Maximum size is 10MB.')
       return
     }
 
-    // Check file type
     if (!file.type.startsWith('image/')) {
       toast.error('Please select an image file.')
       return
     }
 
     const reader = new FileReader()
-    reader.onload = () => {
-      wizard.updateState({ imageData: reader.result as string })
+    reader.onload = async () => {
+      const imageData = reader.result as string
+      wizard.updateState({ imageData })
+
+      // Optionally save to library
+      if (saveToLibrary) {
+        toast.loading('Saving to library...')
+        const photo = await uploadPhoto(file, file.name)
+        toast.dismiss()
+        if (photo) {
+          wizard.updateState({
+            inputPhotoId: photo.id,
+            inputPhotoPath: photo.storage_path,
+          } as any)
+          toast.success('Saved to library!')
+        }
+      }
     }
     reader.readAsDataURL(file)
   }
 
+  const handleSelectFromLibrary = (photo: Photo) => {
+    if (photo.url) {
+      wizard.updateState({
+        imageData: photo.url,
+        inputPhotoId: photo.id,
+        inputPhotoPath: photo.storage_path,
+      } as any)
+    }
+  }
+
   const reset = () => {
-    wizard.updateState({ imageData: null })
+    wizard.updateState({
+      imageData: null,
+      inputPhotoId: null,
+      inputPhotoPath: null,
+    } as any)
     setMode('select')
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
@@ -76,7 +122,7 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
             className="border-white/20 text-white hover:bg-white/10"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
-            Retake
+            Change
           </Button>
           <Button
             onClick={() => wizard.nextStep()}
@@ -84,6 +130,37 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
           >
             Continue
             <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Library mode
+  if (mode === 'library') {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-white text-center">
+          Select from library
+        </h2>
+
+        <div className="max-w-2xl mx-auto">
+          <PhotoGrid
+            photos={photos}
+            loading={photosLoading}
+            onSelect={handleSelectFromLibrary}
+            selectable
+          />
+        </div>
+
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            onClick={() => setMode('select')}
+            className="border-white/20 text-white hover:bg-white/10"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
           </Button>
         </div>
       </div>
@@ -133,6 +210,18 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
           />
         </div>
 
+        {/* Save to library toggle */}
+        <label className="flex items-center justify-center gap-2 text-gray-300 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={saveToLibrary}
+            onChange={(e) => setSaveToLibrary(e.target.checked)}
+            className="w-4 h-4 rounded border-white/20 bg-white/5 text-purple-500 focus:ring-purple-500"
+          />
+          <Save className="h-4 w-4" />
+          <span className="text-sm">Save to my library</span>
+        </label>
+
         <div className="flex justify-center gap-4">
           <Button
             variant="outline"
@@ -160,30 +249,57 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
         Add your photo
       </h2>
       <p className="text-gray-400 text-center">
-        Take a selfie or upload an image
+        Take a selfie, upload an image, or choose from your library
       </p>
 
-      <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
+      <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto">
         <button
           onClick={() => setMode('webcam')}
-          className="aspect-square rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-6"
+          className="aspect-square rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-4"
         >
-          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-            <Camera className="w-8 h-8 text-white" />
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+            <Camera className="w-6 h-6 text-white" />
           </div>
-          <span className="text-white font-medium">Take Selfie</span>
+          <span className="text-white font-medium text-sm">Selfie</span>
         </button>
 
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="aspect-square rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-6"
+          className="aspect-square rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-4"
         >
-          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-            <Upload className="w-8 h-8 text-white" />
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+            <Upload className="w-6 h-6 text-white" />
           </div>
-          <span className="text-white font-medium">Upload Image</span>
+          <span className="text-white font-medium text-sm">Upload</span>
+        </button>
+
+        <button
+          onClick={() => setMode('library')}
+          className="aspect-square rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-4 relative"
+        >
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+            <FolderOpen className="w-6 h-6 text-white" />
+          </div>
+          <span className="text-white font-medium text-sm">Library</span>
+          {photos.length > 0 && (
+            <span className="absolute top-2 right-2 bg-purple-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              {photos.length}
+            </span>
+          )}
         </button>
       </div>
+
+      {/* Save to library toggle for upload */}
+      <label className="flex items-center justify-center gap-2 text-gray-300 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={saveToLibrary}
+          onChange={(e) => setSaveToLibrary(e.target.checked)}
+          className="w-4 h-4 rounded border-white/20 bg-white/5 text-purple-500 focus:ring-purple-500"
+        />
+        <Save className="h-4 w-4" />
+        <span className="text-sm">Save new photos to my library</span>
+      </label>
 
       <input
         ref={fileInputRef}

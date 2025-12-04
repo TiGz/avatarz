@@ -1,79 +1,91 @@
+import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { WizardHook } from '@/hooks/useWizard'
-import { STYLES, Style } from '@/types'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { useStylesForCategory } from '@/hooks/useStylesForCategory'
+import { AvatarOptions } from '@/types'
+import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
 
 interface StyleStepProps {
   wizard: WizardHook
+  options: AvatarOptions | null
 }
 
-const styleLabels: Record<Style, string> = {
-  'cartoon': 'Cartoon',
-  'realistic': 'Realistic',
-  'anime': 'Anime',
-  'pixel-art': 'Pixel Art',
-  'watercolor': 'Watercolor',
-  'oil-painting': 'Oil Painting',
-  'cyberpunk': 'Cyberpunk',
-  'vintage': 'Vintage',
-  'pop-art': 'Pop Art',
-  'custom': 'Custom',
-}
-
-const styleEmojis: Record<Style, string> = {
-  'cartoon': '🎨',
-  'realistic': '📸',
-  'anime': '🌸',
-  'pixel-art': '👾',
-  'watercolor': '🖌️',
-  'oil-painting': '🖼️',
-  'cyberpunk': '🤖',
-  'vintage': '📻',
-  'pop-art': '💥',
-  'custom': '✨',
-}
-
-export function StyleStep({ wizard }: StyleStepProps) {
+export function StyleStep({ wizard, options }: StyleStepProps) {
   const { state, updateState, nextStep, prevStep } = wizard
+
+  // Lazy-load styles for the selected category
+  const { styles: categoryStyles, loading, error } = useStylesForCategory(state.category)
+
+  // Get current category label for display
+  const currentCategory = options?.categories.find(c => c.id === state.category)
+
+  // Auto-select first style when styles load and none selected
+  useEffect(() => {
+    if (categoryStyles.length > 0 && !state.style) {
+      updateState({ style: categoryStyles[0].id })
+    }
+  }, [categoryStyles, state.style, updateState])
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 text-purple-400 animate-spin mb-4" />
+        <p className="text-gray-400">Loading styles...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-400 mb-4">{error}</p>
+        <Button
+          variant="outline"
+          onClick={prevStep}
+          className="border-white/20 text-white hover:bg-white/10"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-white text-center">
-        Choose your style
-      </h2>
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-white">
+          Choose your style
+        </h2>
+        {currentCategory && (
+          <p className="text-gray-400 mt-2">
+            {currentCategory.emoji} {currentCategory.label} styles
+          </p>
+        )}
+      </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-        {STYLES.map((style) => (
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        {categoryStyles.map((style) => (
           <button
-            key={style}
-            onClick={() => updateState({ style })}
+            key={style.id}
+            onClick={() => updateState({ style: style.id })}
             className={`
-              p-4 rounded-xl border transition-all text-center
-              ${state.style === style
-                ? 'bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-purple-500'
-                : 'bg-white/5 border-white/10 hover:border-white/30'
+              p-4 rounded-xl border-2 transition-all text-center
+              ${state.style === style.id
+                ? 'bg-gradient-to-br from-purple-500/30 to-pink-500/30 border-purple-400 ring-2 ring-purple-400/50 scale-105'
+                : 'bg-white/5 border-white/10 hover:border-white/30 hover:bg-white/10'
               }
             `}
           >
-            <div className="text-2xl mb-2">{styleEmojis[style]}</div>
-            <div className="text-white text-sm font-medium">{styleLabels[style]}</div>
+            <div className="text-2xl mb-2">{style.emoji}</div>
+            <div className="text-white text-sm font-medium">{style.label}</div>
           </button>
         ))}
       </div>
 
-      {state.style === 'custom' && (
-        <div className="max-w-md mx-auto">
-          <Input
-            placeholder="Describe your custom style..."
-            value={state.customStyle}
-            onChange={(e) => updateState({ customStyle: e.target.value })}
-            maxLength={100}
-            className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
-          />
-          <p className="text-gray-500 text-xs mt-2 text-right">
-            {state.customStyle.length}/100
-          </p>
+      {categoryStyles.length === 0 && (
+        <div className="text-center py-8">
+          <p className="text-gray-400">No styles available for this category</p>
         </div>
       )}
 
@@ -88,7 +100,7 @@ export function StyleStep({ wizard }: StyleStepProps) {
         </Button>
         <Button
           onClick={nextStep}
-          disabled={state.style === 'custom' && !state.customStyle.trim()}
+          disabled={!state.style && categoryStyles.length > 0}
           className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
         >
           Continue
