@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { Input } from '@/components/ui/input'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { Checkbox } from '@/components/ui/checkbox'
 import { WizardHook } from '@/hooks/useWizard'
 import { useQuota } from '@/hooks/useQuota'
 import { QuotaDisplay } from '@/components/ui/QuotaDisplay'
@@ -84,7 +81,9 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
             'Authorization': `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
-            imageData: state.imageData,
+            // Send either imageData (single photo) or photoIds (multi-photo)
+            imageData: state.selectedPhotoIds.length === 0 ? state.imageData : undefined,
+            photoIds: state.selectedPhotoIds.length > 0 ? state.selectedPhotoIds : undefined,
             style: state.style,
             customStyle: state.customStyle,
             cropType: state.cropType,
@@ -96,6 +95,8 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
             inputPhotoId: (state as any).inputPhotoId,
             inputPhotoPath: (state as any).inputPhotoPath,
             isPublic: state.isPublic,
+            // Dynamic input values for parameterized styles
+            inputValues: Object.keys(state.inputValues).length > 0 ? state.inputValues : undefined,
             // New generation options (only for standard mode)
             keepBackground: !isCustomCategory ? state.keepBackground : undefined,
             ageModification: !isCustomCategory ? state.ageModification : undefined,
@@ -335,7 +336,120 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
     )
   }
 
-  // Standard flow - show summary and generate button
+  // Special styles (non-legacy) - simplified generate view
+  const isSpecialStyle = selectedStyle && !selectedStyle.useLegacyOptions
+  const isMultiPhoto = state.selectedPhotoIds.length > 0
+
+  if (isSpecialStyle) {
+    const canGenerate = !(quota?.remaining === 0 && !quota?.is_admin)
+
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-white">
+            Ready to generate!
+          </h2>
+          <p className="text-gray-400 mt-2">
+            {selectedStyle.emoji} {selectedStyle.label}
+          </p>
+        </div>
+
+        {/* Quota display */}
+        <div className="flex justify-center">
+          <QuotaDisplay />
+        </div>
+
+        {/* Summary for special styles */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 max-w-md mx-auto">
+          {/* Photo preview(s) */}
+          {isMultiPhoto ? (
+            <div className="flex gap-2 justify-center mb-4 flex-wrap">
+              {state.selectedPhotos.map((photo, idx) => (
+                <div key={photo.id} className="w-16 h-16 rounded-xl overflow-hidden bg-white/10 relative">
+                  <img
+                    src={photo.url}
+                    alt={`Photo ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-1 left-1 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-xs font-bold text-white">
+                    {idx + 1}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : state.imageData ? (
+            <div className="flex justify-center mb-4">
+              <div className="w-24 h-24 rounded-xl overflow-hidden">
+                <img
+                  src={state.imageData}
+                  alt="Your photo"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          ) : null}
+
+          <div className="text-center text-sm text-gray-400">
+            {isMultiPhoto && (
+              <p>{state.selectedPhotoIds.length} photos selected</p>
+            )}
+            {Object.keys(state.inputValues).length > 0 && (
+              <div className="mt-2 space-y-1">
+                {Object.entries(state.inputValues).map(([key, value]) => (
+                  <p key={key}>
+                    <span className="text-gray-500 capitalize">{key.replace('_', ' ')}: </span>
+                    <span className="text-white">{value}</span>
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Privacy toggle */}
+          <div className="mt-4 pt-4 border-t border-white/10">
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={!state.isPublic}
+                  onChange={(e) => updateState({ isPublic: !e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-5 h-5 rounded border border-white/30 bg-white/5 peer-checked:bg-purple-500 peer-checked:border-purple-500 transition-colors flex items-center justify-center">
+                  {!state.isPublic && <Lock className="w-3 h-3 text-white" />}
+                </div>
+              </div>
+              <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
+                Keep my avatar private
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div className="flex justify-center gap-4">
+          <Button
+            variant="outline"
+            onClick={prevStep}
+            className="bg-transparent border-white/20 text-white hover:bg-white/10"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+          <Button
+            onClick={generate}
+            size="lg"
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+            disabled={!canGenerate}
+          >
+            <Sparkles className="mr-2 h-5 w-5" />
+            Generate Avatar
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Standard/legacy flow - show summary and generate button
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-white text-center">
@@ -375,6 +489,11 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
                 Name: <span className="text-white">{state.name}</span>
               </div>
             )}
+            {state.customTextEnabled && state.customText && (
+              <div className="text-gray-400">
+                Custom: <span className="text-white">{state.customText}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -402,104 +521,20 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
               : "Your avatar will only be visible to you"}
           </p>
         </div>
-      </div>
-
-      {/* Generation Options */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 max-w-md mx-auto space-y-4">
-        {/* Background Option */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-white/80">Background</label>
-          <ToggleGroup
-            type="single"
-            value={state.keepBackground ? 'keep' : 'remove'}
-            onValueChange={(v) => v && updateState({ keepBackground: v === 'keep' })}
-            className="justify-start"
-          >
-            <ToggleGroupItem
-              value="remove"
-              className="text-xs px-3 py-1.5 data-[state=on]:bg-purple-500/30 data-[state=on]:text-purple-200 border border-white/10 data-[state=on]:border-purple-400/50"
-            >
-              Replace
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="keep"
-              className="text-xs px-3 py-1.5 data-[state=on]:bg-purple-500/30 data-[state=on]:text-purple-200 border border-white/10 data-[state=on]:border-purple-400/50"
-            >
-              Keep & Style
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-
-        {/* Age Option */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-white/80">Age</label>
-          <ToggleGroup
-            type="single"
-            value={state.ageModification}
-            onValueChange={(v) => v && updateState({ ageModification: v as 'normal' | 'younger' | 'older' })}
-            className="justify-start"
-          >
-            <ToggleGroupItem
-              value="younger"
-              className="text-xs px-3 py-1.5 data-[state=on]:bg-purple-500/30 data-[state=on]:text-purple-200 border border-white/10 data-[state=on]:border-purple-400/50"
-            >
-              Younger
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="normal"
-              className="text-xs px-3 py-1.5 data-[state=on]:bg-purple-500/30 data-[state=on]:text-purple-200 border border-white/10 data-[state=on]:border-purple-400/50"
-            >
-              Normal
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="older"
-              className="text-xs px-3 py-1.5 data-[state=on]:bg-purple-500/30 data-[state=on]:text-purple-200 border border-white/10 data-[state=on]:border-purple-400/50"
-            >
-              Older
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-
-        {/* Customisation */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="customise"
-              checked={state.customTextEnabled}
-              onCheckedChange={(checked) => updateState({ customTextEnabled: !!checked })}
-              className="border-white/30 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500"
-            />
-            <label htmlFor="customise" className="text-sm font-medium text-white/80 cursor-pointer">
-              Add customisation
-            </label>
-          </div>
-          {state.customTextEnabled && (
-            <div>
-              <Input
-                placeholder="e.g., wearing red sunglasses"
-                value={state.customText}
-                onChange={(e) => updateState({ customText: e.target.value })}
-                maxLength={150}
-                className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 text-sm"
-              />
-              <p className="text-xs text-white/40 text-right mt-1">
-                {state.customText.length}/150
-              </p>
-            </div>
-          )}
-        </div>
 
         {/* Preview Prompt Button */}
         {selectedStyle && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowPromptPreview(true)}
-            className="bg-transparent w-full border-white/20 text-white/70 hover:text-white hover:bg-white/10"
-          >
-            <Eye className="mr-2 h-4 w-4" />
-            Preview Full Prompt
-          </Button>
+          <div className="mt-4 pt-4 border-t border-white/10">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPromptPreview(true)}
+              className="bg-transparent w-full border-white/20 text-white/70 hover:text-white hover:bg-white/10"
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              Preview Full Prompt
+            </Button>
+          </div>
         )}
       </div>
 

@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useWizard, WIZARD_STEPS } from '@/hooks/useWizard'
 import { useAvatarOptions } from '@/hooks/useAvatarOptions'
@@ -28,6 +29,19 @@ export function WizardContainer() {
   const shouldFetchStyles = wizard.step >= WIZARD_STEPS.STYLE
   const { styles } = useStylesForCategory(shouldFetchStyles ? wizard.state.category : null)
   const selectedStyle = styles.find(s => s.id === wizard.state.style) || null
+
+  // Check if OPTIONS step should be skipped (must be before early return for hooks consistency)
+  const shouldSkipOptions = selectedStyle &&
+    !selectedStyle.useLegacyOptions &&
+    (!selectedStyle.inputSchema || selectedStyle.inputSchema.fields.length === 0)
+
+  // Auto-skip OPTIONS step for special styles with no inputs
+  // This useEffect must be called before any early returns (Rules of Hooks)
+  useEffect(() => {
+    if (!loading && wizard.step === WIZARD_STEPS.OPTIONS && shouldSkipOptions) {
+      wizard.nextStep()
+    }
+  }, [loading, wizard.step, shouldSkipOptions])
 
   if (loading) {
     return (
@@ -78,9 +92,9 @@ export function WizardContainer() {
       return <LegacyOptionsStep wizard={wizard} options={options} />
     }
 
-    // No options needed, auto-advance to generate
-    wizard.nextStep()
-    return null
+    // This shouldn't be reached if shouldSkipOptions is working,
+    // but fallback to legacy options just in case
+    return <LegacyOptionsStep wizard={wizard} options={options} />
   }
 
   const renderStep = () => {

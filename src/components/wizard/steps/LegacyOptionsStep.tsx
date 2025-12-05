@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { WizardHook } from '@/hooks/useWizard'
 import { AvatarOptions } from '@/types'
-import { ArrowLeft, ArrowRight, User, UserCircle, Circle, Sparkles, Clock, Palette } from 'lucide-react'
+import { ArrowLeft, ArrowRight, User, UserCircle, Circle, Sparkles, Clock, Palette, Wand2 } from 'lucide-react'
 
 interface LegacyOptionsStepProps {
   wizard: WizardHook
@@ -171,6 +172,37 @@ export function LegacyOptionsStep({ wizard, options }: LegacyOptionsStepProps) {
                 />
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Custom Text Section */}
+      <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+        <div className="flex items-center gap-3 mb-3">
+          <Checkbox
+            id="customise"
+            checked={state.customTextEnabled}
+            onCheckedChange={(checked) => updateState({ customTextEnabled: !!checked })}
+            className="border-white/30 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500"
+          />
+          <label htmlFor="customise" className="flex items-center gap-2 cursor-pointer">
+            <Wand2 className="w-4 h-4 text-gray-400" />
+            <span className="text-white">Add customisation</span>
+          </label>
+        </div>
+
+        {state.customTextEnabled && (
+          <div className="pl-8 border-l-2 border-purple-500/30">
+            <Input
+              placeholder="e.g., wearing red sunglasses, holding a coffee cup"
+              value={state.customText}
+              onChange={(e) => updateState({ customText: e.target.value })}
+              maxLength={150}
+              className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+            />
+            <p className="text-xs text-gray-500 text-right mt-1">
+              {state.customText.length}/150
+            </p>
           </div>
         )}
       </div>

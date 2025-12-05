@@ -5,7 +5,7 @@ import { WizardHook } from '@/hooks/useWizard'
 import { usePhotos } from '@/hooks/usePhotos'
 import { PhotoGrid } from '@/components/photos/PhotoGrid'
 import { Photo } from '@/types'
-import { Camera, Upload, RefreshCw, ArrowRight, FolderOpen, ArrowLeft, Save } from 'lucide-react'
+import { Camera, Upload, RefreshCw, ArrowRight, FolderOpen, ArrowLeft, Save, X, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface CaptureStepProps {
@@ -66,7 +66,7 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
         toast.error(`Maximum ${maxPhotos} photos allowed`)
         return
       }
-      wizard.togglePhotoSelection(photo.id)
+      wizard.togglePhotoSelection(photo.id, photo.url)
     } else {
       // Single photo mode: select directly
       wizard.updateState({
@@ -102,12 +102,9 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
 
     setIsConfirming(true)
 
-    // Update wizard with the image data
-    wizard.updateState({ imageData: previewData })
-
-    // Optionally save to library
-    if (saveToLibrary) {
-      toast.loading('Saving to library...')
+    if (isMultiPhoto) {
+      // Multi-photo mode: save to library (required) and add to selection
+      toast.loading('Saving photo...')
       let photo = null
 
       if (pendingFile) {
@@ -117,17 +114,46 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
       }
 
       toast.dismiss()
-      if (photo) {
-        wizard.updateState({
-          inputPhotoId: photo.id,
-          inputPhotoPath: photo.storage_path,
-        } as any)
-        toast.success('Saved to library!')
+      if (photo && photo.url) {
+        wizard.addSelectedPhoto({ id: photo.id, url: photo.url })
+        toast.success('Photo added!')
+      } else {
+        toast.error('Failed to save photo')
       }
-    }
 
-    setIsConfirming(false)
-    wizard.nextStep()
+      // Clear preview and go back to select mode
+      setPreviewData(null)
+      setPendingFile(null)
+      setMode('select')
+      setIsConfirming(false)
+    } else {
+      // Single photo mode: original behavior
+      wizard.updateState({ imageData: previewData })
+
+      // Optionally save to library
+      if (saveToLibrary) {
+        toast.loading('Saving to library...')
+        let photo = null
+
+        if (pendingFile) {
+          photo = await uploadPhoto(pendingFile, pendingFile.name)
+        } else {
+          photo = await uploadFromDataUrl(previewData, `selfie_${Date.now()}.jpg`)
+        }
+
+        toast.dismiss()
+        if (photo) {
+          wizard.updateState({
+            inputPhotoId: photo.id,
+            inputPhotoPath: photo.storage_path,
+          } as any)
+          toast.success('Saved to library!')
+        }
+      }
+
+      setIsConfirming(false)
+      wizard.nextStep()
+    }
   }
 
   const reset = () => {
@@ -147,11 +173,19 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
 
   // Show preview of new capture (not yet persisted)
   if (previewData) {
+    const selectedCount = wizard.state.selectedPhotoIds.length
+
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-bold text-white text-center">
-          Looking good!
+          {isMultiPhoto ? 'Add this photo?' : 'Looking good!'}
         </h2>
+
+        {isMultiPhoto && (
+          <p className="text-gray-400 text-center">
+            {selectedCount} of {minPhotos === maxPhotos ? minPhotos : `${minPhotos}-${maxPhotos}`} photos selected
+          </p>
+        )}
 
         <div className="relative aspect-square max-w-sm mx-auto rounded-2xl overflow-hidden border-2 border-purple-500/50">
           <img
@@ -161,17 +195,19 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
           />
         </div>
 
-        {/* Save to library toggle */}
-        <label className="flex items-center justify-center gap-2 text-gray-300 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={saveToLibrary}
-            onChange={(e) => setSaveToLibrary(e.target.checked)}
-            className="w-4 h-4 rounded border-white/20 bg-white/5 text-purple-500 focus:ring-purple-500"
-          />
-          <Save className="h-4 w-4" />
-          <span className="text-sm">Save to my library</span>
-        </label>
+        {/* Save to library toggle - only for single photo mode */}
+        {!isMultiPhoto && (
+          <label className="flex items-center justify-center gap-2 text-gray-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={saveToLibrary}
+              onChange={(e) => setSaveToLibrary(e.target.checked)}
+              className="w-4 h-4 rounded border-white/20 bg-white/5 text-purple-500 focus:ring-purple-500"
+            />
+            <Save className="h-4 w-4" />
+            <span className="text-sm">Save to my library</span>
+          </label>
+        )}
 
         <div className="flex justify-center gap-4">
           <Button
@@ -185,11 +221,11 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={isConfirming}
+            disabled={isConfirming || (isMultiPhoto && selectedCount >= maxPhotos)}
             className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
           >
-            {isConfirming ? 'Saving...' : 'Continue'}
-            <ArrowRight className="ml-2 h-4 w-4" />
+            {isConfirming ? 'Saving...' : isMultiPhoto ? 'Add Photo' : 'Continue'}
+            {isMultiPhoto ? <Plus className="ml-2 h-4 w-4" /> : <ArrowRight className="ml-2 h-4 w-4" />}
           </Button>
         </div>
       </div>
@@ -361,42 +397,96 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
     )
   }
 
-  // Selection mode
-  // For multi-photo styles, go directly to library
+  // Selection mode for multi-photo styles
   if (isMultiPhoto) {
+    const selectedCount = wizard.state.selectedPhotoIds.length
+    const canAddMore = selectedCount < maxPhotos
+
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-bold text-white text-center">
-          Select your photos
+          Add your photos
         </h2>
         <p className="text-gray-400 text-center">
-          This style requires {minPhotos === maxPhotos ? minPhotos : `${minPhotos}-${maxPhotos}`} photos from your library
+          Select {minPhotos === maxPhotos ? minPhotos : `${minPhotos}-${maxPhotos}`} photos
+          <span className="ml-2 text-purple-400 font-medium">
+            ({selectedCount} selected)
+          </span>
         </p>
 
-        <div className="flex justify-center">
-          <button
-            onClick={() => setMode('library')}
-            className="rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-8 relative"
-          >
-            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
-              <FolderOpen className="w-8 h-8 text-white" />
-            </div>
-            <span className="text-white font-medium">Open Library</span>
-            {photos.length > 0 && (
-              <span className="absolute top-2 right-2 bg-purple-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center">
-                {photos.length}
-              </span>
-            )}
-          </button>
-        </div>
+        {/* Selected photos preview */}
+        {wizard.state.selectedPhotos.length > 0 && (
+          <div className="flex justify-center gap-3 flex-wrap">
+            {wizard.state.selectedPhotos.map((photo, idx) => (
+              <div key={photo.id} className="relative">
+                <div className="w-20 h-20 rounded-xl overflow-hidden ring-2 ring-purple-500/50">
+                  <img
+                    src={photo.url}
+                    alt={`Selected ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-xs font-bold text-white">
+                  {idx + 1}
+                </div>
+                <button
+                  onClick={() => wizard.removeSelectedPhoto(photo.id)}
+                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-3 h-3 text-white" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
-        {photos.length < minPhotos && (
-          <p className="text-amber-400 text-center text-sm">
-            You need at least {minPhotos} photos in your library. Upload photos first!
+        {/* Add more photos options */}
+        {canAddMore && (
+          <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto">
+            <button
+              onClick={() => setMode('webcam')}
+              className="aspect-square rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-4"
+            >
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                <Camera className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-white font-medium text-sm">Selfie</span>
+            </button>
+
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="aspect-square rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-4"
+            >
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                <Upload className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-white font-medium text-sm">Upload</span>
+            </button>
+
+            <button
+              onClick={() => setMode('library')}
+              className="aspect-square rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-4 relative"
+            >
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+                <FolderOpen className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-white font-medium text-sm">Library</span>
+              {photos.length > 0 && (
+                <span className="absolute top-2 right-2 bg-purple-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {photos.length}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+
+        {!canAddMore && (
+          <p className="text-green-400 text-center text-sm">
+            All {maxPhotos} photos selected!
           </p>
         )}
 
-        <div className="flex justify-center">
+        <div className="flex justify-center gap-4">
           <Button
             variant="outline"
             onClick={() => wizard.prevStep()}
@@ -405,7 +495,23 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
+          <Button
+            onClick={handleMultiPhotoContinue}
+            disabled={!hasEnoughPhotos}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+          >
+            Continue ({selectedCount}/{minPhotos})
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileUpload}
+          className="hidden"
+        />
       </div>
     )
   }

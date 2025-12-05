@@ -34,6 +34,7 @@ const createInitialState = (options?: AvatarOptions | null): WizardState => ({
   customText: '',
   // Multi-photo support
   selectedPhotoIds: [],
+  selectedPhotos: [],
   // Dynamic inputs (for styles with input_schema)
   inputValues: {},
 })
@@ -77,6 +78,7 @@ export function useWizard(options?: AvatarOptions | null) {
         newState.style = ''
         newState.inputValues = {}
         newState.selectedPhotoIds = []
+        newState.selectedPhotos = []
         // Clear custom style when switching away from custom category
         if (prev.category === 'custom' && updates.category !== 'custom') {
           newState.customStyle = ''
@@ -87,6 +89,7 @@ export function useWizard(options?: AvatarOptions | null) {
       if (updates.style && updates.style !== prev.style) {
         newState.inputValues = {}
         newState.selectedPhotoIds = []
+        newState.selectedPhotos = []
       }
 
       return newState
@@ -101,22 +104,55 @@ export function useWizard(options?: AvatarOptions | null) {
     }))
   }
 
-  // Toggle photo selection for multi-photo styles
-  const togglePhotoSelection = (photoId: string) => {
+  // Toggle photo selection for multi-photo styles (with photo data for thumbnails)
+  const togglePhotoSelection = (photoId: string, photoUrl?: string) => {
     setState((prev) => {
       const isSelected = prev.selectedPhotoIds.includes(photoId)
-      return {
-        ...prev,
-        selectedPhotoIds: isSelected
-          ? prev.selectedPhotoIds.filter(id => id !== photoId)
-          : [...prev.selectedPhotoIds, photoId]
+      if (isSelected) {
+        // Remove photo
+        return {
+          ...prev,
+          selectedPhotoIds: prev.selectedPhotoIds.filter(id => id !== photoId),
+          selectedPhotos: prev.selectedPhotos.filter(p => p.id !== photoId)
+        }
+      } else {
+        // Add photo (only if we have the URL)
+        return {
+          ...prev,
+          selectedPhotoIds: [...prev.selectedPhotoIds, photoId],
+          selectedPhotos: photoUrl
+            ? [...prev.selectedPhotos, { id: photoId, url: photoUrl }]
+            : prev.selectedPhotos
+        }
       }
     })
   }
 
   // Set photo selection (replace entire array)
   const setSelectedPhotoIds = (photoIds: string[]) => {
-    setState((prev) => ({ ...prev, selectedPhotoIds: photoIds }))
+    setState((prev) => ({
+      ...prev,
+      selectedPhotoIds: photoIds,
+      selectedPhotos: [] // Clear photos when setting IDs directly
+    }))
+  }
+
+  // Add a photo with data (for webcam/upload in multi-photo mode)
+  const addSelectedPhoto = (photo: { id: string; url: string }) => {
+    setState((prev) => ({
+      ...prev,
+      selectedPhotoIds: [...prev.selectedPhotoIds, photo.id],
+      selectedPhotos: [...prev.selectedPhotos, photo]
+    }))
+  }
+
+  // Remove a selected photo by ID
+  const removeSelectedPhoto = (photoId: string) => {
+    setState((prev) => ({
+      ...prev,
+      selectedPhotoIds: prev.selectedPhotoIds.filter(id => id !== photoId),
+      selectedPhotos: prev.selectedPhotos.filter(p => p.id !== photoId)
+    }))
   }
 
   const reset = () => {
@@ -153,6 +189,8 @@ export function useWizard(options?: AvatarOptions | null) {
     setInputValue,
     togglePhotoSelection,
     setSelectedPhotoIds,
+    addSelectedPhoto,
+    removeSelectedPhoto,
     reset,
     regenerate,
     goBackFromDownload,

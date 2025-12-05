@@ -72,6 +72,7 @@ export interface WizardState {
   customText: string
   // Multi-photo support
   selectedPhotoIds: string[]  // Array of photo IDs for multi-photo styles
+  selectedPhotos: Array<{ id: string; url: string }>  // Photo data for thumbnails
   // Dynamic inputs (for styles with input_schema)
   inputValues: Record<string, string>
 }
