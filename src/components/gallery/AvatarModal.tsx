@@ -41,17 +41,47 @@ export function AvatarModal({ generation, onClose, onDownload, onDelete, deletin
     setFullLoaded(false)
   }, [generation?.id])
 
+  const generateFilename = () => {
+    const parts: string[] = []
+    if (generation?.name_text) {
+      parts.push(generation.name_text.toLowerCase().replace(/\s+/g, '-'))
+    }
+    parts.push(generation?.style || 'avatar')
+    parts.push('avatar')
+    return `${parts.join('-')}.png`
+  }
+
   const handleShare = async () => {
-    if (!generation?.share_url) return
+    if (!generation?.url) return
+
     try {
-      if (navigator.share) {
-        await navigator.share({ url: generation.share_url })
-      } else {
-        await navigator.clipboard.writeText(generation.share_url)
-        toast.success('Link copied!')
+      // Fetch the image and convert to File for native sharing
+      const response = await fetch(generation.url)
+      const blob = await response.blob()
+      const file = new File([blob], generateFilename(), { type: 'image/png' })
+
+      // Check if browser supports file sharing
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'My Avatar',
+          text: 'Check out my AI-generated avatar!',
+        })
+      } else if (generation.share_url) {
+        // Fallback to URL sharing
+        if (navigator.share) {
+          await navigator.share({ url: generation.share_url })
+        } else {
+          await navigator.clipboard.writeText(generation.share_url)
+          toast.success('Link copied!')
+        }
       }
-    } catch {
-      // User cancelled or error - ignore
+    } catch (error) {
+      // User cancelled share - ignore AbortError
+      if (error instanceof Error && error.name !== 'AbortError') {
+        console.error('Share error:', error)
+        toast.error('Failed to share')
+      }
     }
   }
 
@@ -198,16 +228,16 @@ export function AvatarModal({ generation, onClose, onDownload, onDelete, deletin
                   <Download className="mr-2 h-4 w-4" />
                   Download
                 </Button>
-                {generation.share_url && (
-                  <div className="flex-1 sm:w-full flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={handleShare}
-                      className="flex-1 border-white/20 text-white bg-white/5 hover:bg-white/10"
-                    >
-                      <Share2 className="mr-2 h-4 w-4" />
-                      Share
-                    </Button>
+                <div className="flex-1 sm:w-full flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleShare}
+                    className="flex-1 border-white/20 text-white bg-white/5 hover:bg-white/10"
+                  >
+                    <Share2 className="mr-2 h-4 w-4" />
+                    Share
+                  </Button>
+                  {generation.share_url && (
                     <Button
                       variant="outline"
                       onClick={async () => {
@@ -219,8 +249,8 @@ export function AvatarModal({ generation, onClose, onDownload, onDelete, deletin
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
-                  </div>
-                )}
+                  )}
+                </div>
                 {onDelete && (
                   <Button
                     variant="outline"

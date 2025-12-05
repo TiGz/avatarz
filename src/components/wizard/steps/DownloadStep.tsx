@@ -76,16 +76,36 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
   }
 
   const handleShare = async () => {
-    if (!state.shareUrl) return
+    if (!state.generatedImage) return
+
     try {
-      if (navigator.share) {
-        await navigator.share({ url: state.shareUrl })
-      } else {
-        await navigator.clipboard.writeText(state.shareUrl)
-        toast.success('Link copied!')
+      // Fetch the image and convert to File for native sharing
+      const response = await fetch(state.generatedImage)
+      const blob = await response.blob()
+      const file = new File([blob], generateFilename(), { type: 'image/png' })
+
+      // Check if browser supports file sharing
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'My Avatar',
+          text: 'Check out my AI-generated avatar!',
+        })
+      } else if (state.shareUrl) {
+        // Fallback to URL sharing
+        if (navigator.share) {
+          await navigator.share({ url: state.shareUrl })
+        } else {
+          await navigator.clipboard.writeText(state.shareUrl)
+          toast.success('Link copied!')
+        }
       }
-    } catch {
-      // User cancelled or error - ignore
+    } catch (error) {
+      // User cancelled share - ignore AbortError
+      if (error instanceof Error && error.name !== 'AbortError') {
+        console.error('Share error:', error)
+        toast.error('Failed to share')
+      }
     }
   }
 
@@ -154,29 +174,27 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
             </>
           )}
         </Button>
+        <Button
+          variant="outline"
+          onClick={handleShare}
+          className="bg-transparent border-white/20 text-white hover:bg-white/10"
+        >
+          <Share2 className="mr-2 h-4 w-4" />
+          Share
+        </Button>
         {state.shareUrl && (
-          <>
-            <Button
-              variant="outline"
-              onClick={handleShare}
-              className="bg-transparent border-white/20 text-white hover:bg-white/10"
-            >
-              <Share2 className="mr-2 h-4 w-4" />
-              Share
-            </Button>
-            <Button
-              variant="outline"
-              onClick={async () => {
-                await navigator.clipboard.writeText(state.shareUrl!)
-                toast.success('Link copied!')
-              }}
-              className="bg-transparent border-white/20 text-white hover:bg-white/10"
-              title="Copy link"
-            >
-              <Copy className="mr-2 h-4 w-4" />
-              Copy Link
-            </Button>
-          </>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              await navigator.clipboard.writeText(state.shareUrl!)
+              toast.success('Link copied!')
+            }}
+            className="bg-transparent border-white/20 text-white hover:bg-white/10"
+            title="Copy link"
+          >
+            <Copy className="mr-2 h-4 w-4" />
+            Copy Link
+          </Button>
         )}
       </div>
     </div>
