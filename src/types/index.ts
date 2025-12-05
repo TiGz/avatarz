@@ -6,12 +6,22 @@ export interface CategoryOption {
   description: string
 }
 
+// Option for radio/select input fields
+export interface InputFieldOption {
+  value: string
+  label: string
+  prompt: string  // The actual text injected into the prompt
+}
+
 // Dynamic input field for parameterized styles
 export interface InputField {
   id: string
   label: string
   required: boolean
   placeholder?: string
+  type?: 'text' | 'radio' | 'select'  // Default: 'text'
+  defaultValue?: string
+  options?: InputFieldOption[]  // For radio/select types
 }
 
 // Schema for dynamic inputs

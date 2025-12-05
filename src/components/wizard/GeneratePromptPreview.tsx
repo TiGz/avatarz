@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { WizardState } from '@/types'
+import { WizardState, InputSchema } from '@/types'
 
 // Prompt constants (must match edge function)
 const AGE_PROMPTS: Record<string, string> = {
@@ -41,13 +41,45 @@ interface GeneratePromptPreviewProps {
   state: WizardState
   stylePrompt?: string
   useLegacyOptions?: boolean
+  inputSchema?: InputSchema | null
 }
 
-function buildPrompt(state: WizardState, stylePrompt: string, useLegacyOptions: boolean): string {
+// Render prompt with template substitution (matches edge function logic)
+function renderPromptTemplate(
+  prompt: string,
+  values: Record<string, string>,
+  schema: InputSchema | null | undefined
+): string {
+  return prompt.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    const value = values[key] || ''
+
+    // Check if this field has options with prompt values
+    const field = schema?.fields?.find(f => f.id === key)
+    if (field?.options) {
+      const option = field.options.find(o => o.value === value)
+      return option?.prompt || value
+    }
+
+    return value
+  })
+}
+
+function buildPrompt(
+  state: WizardState,
+  stylePrompt: string,
+  useLegacyOptions: boolean,
+  inputSchema?: InputSchema | null
+): string {
   const parts: string[] = []
 
+  // Apply template substitution to style prompt
+  let processedStylePrompt = stylePrompt
+  if (state.inputValues && Object.keys(state.inputValues).length > 0) {
+    processedStylePrompt = renderPromptTemplate(stylePrompt, state.inputValues, inputSchema)
+  }
+
   // Style prompt first
-  parts.push(stylePrompt)
+  parts.push(processedStylePrompt)
 
   // Only add legacy options if style uses them (matches edge function behavior)
   if (useLegacyOptions) {
@@ -83,7 +115,7 @@ function buildPrompt(state: WizardState, stylePrompt: string, useLegacyOptions: 
   return parts.join(' ').trim()
 }
 
-export function GeneratePromptPreview({ isOpen, onClose, state, stylePrompt, useLegacyOptions = true }: GeneratePromptPreviewProps) {
+export function GeneratePromptPreview({ isOpen, onClose, state, stylePrompt, useLegacyOptions = true, inputSchema }: GeneratePromptPreviewProps) {
   const [copied, setCopied] = useState(false)
 
   // Reset copied state when modal opens/closes
@@ -104,7 +136,7 @@ export function GeneratePromptPreview({ isOpen, onClose, state, stylePrompt, use
     return () => window.removeEventListener('keydown', handleEsc)
   }, [isOpen, onClose])
 
-  const prompt = buildPrompt(state, stylePrompt || '', useLegacyOptions)
+  const prompt = buildPrompt(state, stylePrompt || '', useLegacyOptions, inputSchema)
 
   const handleCopy = async () => {
     try {

@@ -13,7 +13,7 @@ interface StyleStepProps {
 }
 
 export function StyleStep({ wizard, options }: StyleStepProps) {
-  const { state, updateState, nextStep, prevStep } = wizard
+  const { state, updateState, nextStep, prevStep, initializeInputDefaults } = wizard
   const [promptModalStyle, setPromptModalStyle] = useState<StyleOption | null>(null)
 
   // Lazy-load styles for the selected category
@@ -28,12 +28,24 @@ export function StyleStep({ wizard, options }: StyleStepProps) {
   // Fetch examples for the selected style
   const { examples, loading: examplesLoading } = usePublicAvatarsByStyle(state.style)
 
+  // Handler for selecting a style - also initializes defaults
+  const handleStyleSelect = (style: StyleOption) => {
+    updateState({ style: style.id })
+    if (style.inputSchema) {
+      initializeInputDefaults(style.inputSchema)
+    }
+  }
+
   // Auto-select first style when styles load and none selected
   useEffect(() => {
     if (categoryStyles.length > 0 && !state.style) {
-      updateState({ style: categoryStyles[0].id })
+      const firstStyle = categoryStyles[0]
+      updateState({ style: firstStyle.id })
+      if (firstStyle.inputSchema) {
+        initializeInputDefaults(firstStyle.inputSchema)
+      }
     }
-  }, [categoryStyles, state.style, updateState])
+  }, [categoryStyles, state.style, updateState, initializeInputDefaults])
 
   if (loading) {
     return (
@@ -81,7 +93,7 @@ export function StyleStep({ wizard, options }: StyleStepProps) {
           return (
             <button
               key={style.id}
-              onClick={() => updateState({ style: style.id })}
+              onClick={() => handleStyleSelect(style)}
               className={`
                 relative p-4 rounded-xl border-2 transition-all text-center
                 ${isSelected

@@ -74,11 +74,88 @@ Styles are database-driven, not hardcoded. Each style contains its own Gemini pr
 | category_id | TEXT (FK) | References style_categories(id) |
 | label | TEXT | Display name |
 | emoji | TEXT | Style icon |
-| prompt | TEXT | Full Gemini API prompt for this style |
+| prompt | TEXT | Full Gemini API prompt (supports `{{placeholder}}` templating) |
 | sort_order | INTEGER | Display order within category |
 | is_active | BOOLEAN | Soft-delete flag |
+| use_legacy_options | BOOLEAN | Show crop/age/background/name options (default: true) |
+| input_schema | JSONB | Dynamic input fields for parameterized styles (null for standard) |
+| min_photos | INTEGER | Minimum photos required (default: 1) |
+| max_photos | INTEGER | Maximum photos allowed (default: 1) |
 
 Both tables have public read RLS (no auth required for viewing).
+
+### Special Styles with Dynamic Inputs
+
+Special styles can have custom input fields (text, radio, select) that inject values into the prompt template.
+
+**Input Schema Structure:**
+```typescript
+interface InputSchema {
+  fields: Array<{
+    id: string           // Template placeholder name (e.g., 'vibe')
+    label: string        // Display label
+    type?: 'text' | 'radio' | 'select'  // Default: 'text'
+    required: boolean
+    placeholder?: string  // For text inputs
+    defaultValue?: string // Pre-populated value
+    options?: Array<{     // For radio/select types
+      value: string       // The stored value
+      label: string       // Display label
+      prompt: string      // Actual text injected into prompt
+    }>
+  }>
+}
+```
+
+**Key concept**: For radio/select fields, the `prompt` field in each option contains the actual text that gets substituted into the style prompt - not the `value` or `label`.
+
+**Example - snowglobe-couple style:**
+```sql
+-- Prompt uses {{vibe}}, {{outfit}}, {{base_text}} placeholders
+UPDATE public.styles SET
+  prompt = 'Create a snowglobe featuring the two people {{vibe}} inside. Style them {{outfit}}. Base text: "{{base_text}}".',
+  input_schema = '{
+    "fields": [
+      {
+        "id": "base_text",
+        "label": "Globe Base Text",
+        "type": "text",
+        "required": false,
+        "defaultValue": "Merry Christmas"
+      },
+      {
+        "id": "outfit",
+        "label": "Outfits",
+        "type": "radio",
+        "required": true,
+        "defaultValue": "normal",
+        "options": [
+          {"value": "normal", "label": "Winter Clothes", "prompt": "dressed in cozy winter attire"},
+          {"value": "festive", "label": "Festive", "prompt": "dressed as Santa and Elf"}
+        ]
+      },
+      {
+        "id": "vibe",
+        "label": "Relationship",
+        "type": "radio",
+        "required": true,
+        "defaultValue": "romantic",
+        "options": [
+          {"value": "romantic", "label": "Romantic", "prompt": "as a romantic couple embracing"},
+          {"value": "friends", "label": "Friends", "prompt": "as best friends with arms around shoulders"}
+        ]
+      }
+    ]
+  }'::jsonb
+WHERE id = 'snowglobe-couple';
+```
+
+When user selects `vibe=romantic` and `outfit=festive`, the prompt becomes:
+```
+Create a snowglobe featuring the two people as a romantic couple embracing inside. Style them dressed as Santa and Elf...
+```
+
+**Reference migration:** `supabase/migrations/20251205181424_update_snowglobe_couple_input_schema.sql`
 
 ### Key Functions (SECURITY DEFINER)
 - `is_admin(user_id UUID)` - Check if user is admin (bypasses RLS)
@@ -129,6 +206,52 @@ supabase db push
 - Set `sort_order` to control display sequence
 - Set `is_active = false` to hide without deleting
 - Frontend caches styles per category - refresh clears cache automatically
+
+### Adding Special Styles (Multi-Photo or Parameterized)
+
+Special styles have `use_legacy_options = false` and can use:
+- Multiple photos (`min_photos`/`max_photos` > 1)
+- Dynamic inputs (`input_schema` with text/radio/select fields)
+- Template placeholders in the prompt (`{{field_id}}`)
+
+```sql
+-- Example: Style requiring 2 photos with customizable options
+INSERT INTO public.styles (
+  id, category_id, label, emoji, prompt,
+  use_legacy_options, input_schema, min_photos, max_photos, sort_order
+) VALUES (
+  'snowglobe-couple',
+  'special',
+  'Snowglobe Couple',
+  '🔮',
+  'Create a snowglobe with two people {{vibe}} inside, {{outfit}}. Base text: "{{base_text}}".',
+  false,  -- No crop/age/background options
+  '{
+    "fields": [
+      {"id": "base_text", "label": "Base Text", "type": "text", "required": false, "defaultValue": "Merry Christmas"},
+      {"id": "outfit", "label": "Outfits", "type": "radio", "required": true, "defaultValue": "normal",
+       "options": [
+         {"value": "normal", "label": "Winter Clothes", "prompt": "dressed in cozy winter attire"},
+         {"value": "festive", "label": "Festive", "prompt": "dressed as Santa and Elf"}
+       ]},
+      {"id": "vibe", "label": "Vibe", "type": "radio", "required": true, "defaultValue": "romantic",
+       "options": [
+         {"value": "romantic", "label": "Romantic", "prompt": "as a romantic couple embracing"},
+         {"value": "friends", "label": "Friends", "prompt": "as best friends together"}
+       ]}
+    ]
+  }'::jsonb,
+  2,  -- Requires exactly 2 photos
+  2,
+  1
+);
+```
+
+**Don't forget to deploy the edge function** after modifying styles with input schemas:
+```bash
+supabase db push
+supabase functions deploy generate-avatar
+```
 
 ## Edge Functions
 

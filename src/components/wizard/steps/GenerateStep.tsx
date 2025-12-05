@@ -498,6 +498,7 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
           state={state}
           stylePrompt={selectedStyle.prompt}
           useLegacyOptions={selectedStyle.useLegacyOptions}
+          inputSchema={selectedStyle.inputSchema}
         />
       )}
     </div>

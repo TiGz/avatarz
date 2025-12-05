@@ -20,6 +20,27 @@ interface StyleCategoryRow {
   sort_order: number
 }
 
+// Extended input schema types
+interface InputFieldOption {
+  value: string
+  label: string
+  prompt: string
+}
+
+interface InputField {
+  id: string
+  label: string
+  required: boolean
+  placeholder?: string
+  type?: 'text' | 'radio' | 'select'
+  defaultValue?: string
+  options?: InputFieldOption[]
+}
+
+interface InputSchema {
+  fields: InputField[]
+}
+
 interface StyleRow {
   id: string
   category_id: string
@@ -28,7 +49,7 @@ interface StyleRow {
   prompt: string
   sort_order: number
   // New fields for multi-photo and parameterized styles
-  input_schema: { fields: Array<{ id: string; label: string; required: boolean; placeholder?: string }> } | null
+  input_schema: InputSchema | null
   min_photos: number
   max_photos: number
   use_legacy_options: boolean
@@ -644,11 +665,28 @@ Deno.serve(async (req) => {
     }
 
     // Apply template variable substitution if inputValues provided
-    const renderPrompt = (prompt: string, values: Record<string, string>) =>
-      prompt.replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] || '')
+    // For radio/select fields, resolve the option's prompt value instead of the raw value
+    const renderPrompt = (
+      prompt: string,
+      values: Record<string, string>,
+      schema: InputSchema | null
+    ): string => {
+      return prompt.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+        const value = values[key] || ''
+
+        // Check if this field has options with prompt values
+        const field = schema?.fields?.find(f => f.id === key)
+        if (field?.options) {
+          const option = field.options.find(o => o.value === value)
+          return option?.prompt || value
+        }
+
+        return value
+      })
+    }
 
     if (validatedReq.inputValues && Object.keys(validatedReq.inputValues).length > 0) {
-      stylePrompt = renderPrompt(stylePrompt, validatedReq.inputValues)
+      stylePrompt = renderPrompt(stylePrompt, validatedReq.inputValues, styleInputSchema)
     }
 
     // Build prompt parts array

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { WizardState, AvatarOptions } from '@/types'
+import { WizardState, AvatarOptions, InputSchema } from '@/types'
 
 // Step enumeration - photos come AFTER style selection (style defines how many photos needed)
 // Category(0) → Style(1) → Capture(2) → Options(3) → Generate(4) → Download(5)
@@ -155,6 +155,26 @@ export function useWizard(options?: AvatarOptions | null) {
     }))
   }
 
+  // Initialize input values with defaults from style's input schema
+  const initializeInputDefaults = (schema: InputSchema | null) => {
+    if (!schema?.fields) return
+
+    setState((prev) => {
+      const defaults: Record<string, string> = {}
+      for (const field of schema.fields) {
+        if (field.defaultValue && !prev.inputValues[field.id]) {
+          defaults[field.id] = field.defaultValue
+        }
+      }
+      // Only update if there are defaults to set
+      if (Object.keys(defaults).length === 0) return prev
+      return {
+        ...prev,
+        inputValues: { ...defaults, ...prev.inputValues }
+      }
+    })
+  }
+
   const reset = () => {
     setStep(0)
     setState(createInitialState(options))
@@ -191,6 +211,7 @@ export function useWizard(options?: AvatarOptions | null) {
     setSelectedPhotoIds,
     addSelectedPhoto,
     removeSelectedPhoto,
+    initializeInputDefaults,
     reset,
     regenerate,
     goBackFromDownload,
