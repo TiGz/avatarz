@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
     }
 
     // Construct shareable URL
-    const origin = req.headers.get('origin') || Deno.env.get('PUBLIC_SITE_URL') || 'https://avatarz.app'
+    const origin = req.headers.get('origin') || Deno.env.get('PUBLIC_SITE_URL') || 'https://avatarz.tigz.me'
     const inviteUrl = `${origin}/#/invite/${invite.code}`
 
     return new Response(JSON.stringify({

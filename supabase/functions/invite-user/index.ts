@@ -95,17 +95,12 @@ serve(async (req) => {
     }
 
     // Send magic link invitation
-    // Use origin header to support both local dev and production
-    // Origin header only includes protocol+host, so we need to add /avatarz for production
-    const origin = req.headers.get('origin') || 'https://adamchesney.com'
-    const productionDomains = ['adamchesney.com', 'tigz.me']
-    const isProduction = productionDomains.some(domain => origin.includes(domain))
-    const baseUrl = isProduction ? `${origin}/avatarz` : origin
-    const redirectTo = `${baseUrl}/#/`
+    // Use origin header for redirect URL (works for both local dev and production)
+    const origin = req.headers.get('origin') || 'https://avatarz.tigz.me'
+    const redirectTo = `${origin}/#/`
 
     // Log for debugging
     console.log('Origin header:', origin)
-    console.log('Is production:', isProduction)
     console.log('Redirect URL:', redirectTo)
 
     const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(normalizedEmail, {

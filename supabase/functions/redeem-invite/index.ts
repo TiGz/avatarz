@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
       }
 
       // Send magic link with invite code in metadata
-      const redirectUrl = Deno.env.get('PUBLIC_SITE_URL') || 'http://localhost:5173'
+      const redirectUrl = Deno.env.get('PUBLIC_SITE_URL') || 'https://avatarz.tigz.me'
       const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
         normalizedEmail,
         {

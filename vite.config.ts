@@ -14,7 +14,7 @@ export default defineConfig({
       manifest: {
         name: 'Avatarz - AI Avatar Generator',
         short_name: 'Avatarz',
-        start_url: '/avatarz/',
+        start_url: '/',
         display: 'standalone',
         background_color: '#0f172a',
         theme_color: '#4f46e5',
@@ -33,5 +33,5 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  base: '/avatarz/',
+  base: '/',
 })

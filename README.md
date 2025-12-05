@@ -2,7 +2,7 @@
 
 AI-powered avatar generation app that transforms your photos into stunning stylized avatars using Google's Gemini API.
 
-**Live Demo:** [adamchesney.com/avatarz](https://adamchesney.com/avatarz)
+**Live Demo:** [avatarz.tigz.me](https://avatarz.tigz.me)
 
 ## Features
 
