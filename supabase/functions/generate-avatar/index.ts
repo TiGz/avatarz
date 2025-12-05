@@ -202,6 +202,8 @@ interface GeminiResponse {
         }
       }>
     }
+    finishReason?: string  // e.g., 'STOP', 'IMAGE_OTHER', 'SAFETY'
+    finishMessage?: string // Human-readable explanation when generation fails
   }>
   usageMetadata?: {
     promptTokenCount?: number
@@ -689,6 +691,9 @@ Deno.serve(async (req) => {
       stylePrompt = renderPrompt(stylePrompt, validatedReq.inputValues, styleInputSchema)
     }
 
+    // Replace system placeholder {{photo_count}} with actual count
+    stylePrompt = stylePrompt.replace(/\{\{photo_count\}\}/g, String(imageDataArray.length))
+
     // Build prompt parts array
     const promptParts: string[] = []
 
@@ -754,24 +759,42 @@ Deno.serve(async (req) => {
     geminiParts.push({ text: prompt })
 
     // Use Gemini 3 Pro Image model for image generation/editing
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: geminiParts,
-          }],
-          generationConfig: {
-            imageConfig: {
-              aspectRatio: '1:1',
-              imageSize: '1K',
+    // Set up 3-minute timeout for slow generations
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 180000) // 3 minutes
+
+    let geminiResponse: Response
+    try {
+      geminiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: geminiParts,
+            }],
+            generationConfig: {
+              imageConfig: {
+                aspectRatio: '1:1',
+                imageSize: '1K',
+              },
             },
-          },
-        }),
+          }),
+          signal: controller.signal,
+        }
+      )
+    } catch (fetchError) {
+      clearTimeout(timeoutId)
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        return new Response(
+          JSON.stringify({ error: 'Generation timed out. Please try again.', code: 'TIMEOUT' }),
+          { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
-    )
+      throw fetchError
+    }
+    clearTimeout(timeoutId)
 
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text()
@@ -781,6 +804,24 @@ Deno.serve(async (req) => {
 
     const result: GeminiResponse = await geminiResponse.json()
     console.log('Gemini response received, extracting image...')
+
+    // Check for content policy / copyright refusal BEFORE extracting image
+    const candidate = result.candidates?.[0]
+    const finishReason = candidate?.finishReason
+    if (finishReason === 'IMAGE_OTHER' || finishReason === 'SAFETY') {
+      console.log('Gemini refused generation:', finishReason, candidate?.finishMessage)
+
+      // Return 422 (Unprocessable) - request valid but can't be fulfilled
+      // User won't lose a credit since we return before inserting generation record
+      return new Response(
+        JSON.stringify({
+          error: 'Unable to generate this image. This is likely due to copyright or content restrictions on the requested style, movie, TV show, or character. Try a different prompt or style.',
+          code: 'CONTENT_RESTRICTED',
+          finishReason,
+        }),
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     // Extract usage metadata for cost calculation
     const usageMetadata = result.usageMetadata
@@ -797,8 +838,15 @@ Deno.serve(async (req) => {
     )?.inlineData?.data
 
     if (!generatedImageData) {
-      console.error('No image in response:', JSON.stringify(result).substring(0, 1000))
-      throw new Error('No image generated')
+      console.error('No image in response:', JSON.stringify(result).substring(0, 500))
+      // Return error without inserting generation record - user keeps their credit
+      return new Response(
+        JSON.stringify({
+          error: 'Failed to generate image. Please try again with different options.',
+          code: 'GENERATION_FAILED',
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     // Upload generated avatar to Supabase storage

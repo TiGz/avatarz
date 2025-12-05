@@ -116,6 +116,13 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
         return
       }
 
+      // Handle content restriction (copyright/legal issues) - no credit consumed
+      if (response.status === 422 && result.code === 'CONTENT_RESTRICTED') {
+        toast.error(result.error || 'Content restricted. Try a different style or prompt.')
+        setStatus('error')
+        return
+      }
+
       if (!response.ok || !result.success) {
         throw new Error(result.error || 'Generation failed')
       }
