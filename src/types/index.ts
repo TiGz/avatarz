@@ -46,6 +46,7 @@ export interface WizardState {
   customPlacement: string
   generatedImage: string | null
   isPublic: boolean
+  shareUrl: string | null
   // Generation options (standard mode only)
   keepBackground: boolean
   ageModification: 'normal' | 'younger' | 'older'
@@ -114,6 +115,7 @@ export interface Generation {
   total_tokens: number | null
   cost_usd: number | null
   is_public: boolean
+  share_url: string | null
   created_at: string
   url?: string // Signed URL for full-resolution display
   thumbnailUrl?: string // Signed URL for thumbnail display

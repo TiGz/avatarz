@@ -125,7 +125,7 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
       }
 
       setProgress(100)
-      updateState({ generatedImage: result.image })
+      updateState({ generatedImage: result.image, shareUrl: result.shareUrl || null })
       nextStep()
     } catch (error) {
       console.error('Generation error:', error)

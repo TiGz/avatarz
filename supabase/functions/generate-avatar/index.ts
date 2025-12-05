@@ -660,6 +660,15 @@ Deno.serve(async (req) => {
       // Continue without thumbnail - don't fail the whole request
     }
 
+    // Generate permanent share URL for public avatars (~100 years expiry)
+    let shareUrl: string | null = null
+    if (thumbnailFilename && validatedReq.isPublic !== false) {
+      const { data: shareUrlData } = await supabaseAdmin.storage
+        .from('avatar-thumbnails')
+        .createSignedUrl(thumbnailFilename, 3153600000) // ~100 years
+      shareUrl = shareUrlData?.signedUrl || null
+    }
+
     // Create generation record in database
     // isPublic defaults to true if not specified
     const isPublic = validatedReq.isPublic !== false
@@ -681,6 +690,7 @@ Deno.serve(async (req) => {
         total_tokens: totalTokens,
         cost_usd: cost,
         is_public: isPublic,
+        share_url: shareUrl,
       })
       .select()
       .single()
@@ -711,6 +721,7 @@ Deno.serve(async (req) => {
         avatarUrl: signedUrlData?.signedUrl,
         thumbnailPath: thumbnailFilename,
         thumbnailUrl: thumbnailUrl,
+        shareUrl: shareUrl,
         generationId: generation?.id,
         quota: {
           limit: quota.limit,

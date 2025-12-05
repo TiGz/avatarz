@@ -16,6 +16,7 @@ const createInitialState = (options?: AvatarOptions | null): WizardState => ({
   customPlacement: '',
   generatedImage: null,
   isPublic: true,
+  shareUrl: null,
   // Generation options (standard mode only)
   keepBackground: false,
   ageModification: 'normal',
@@ -89,6 +90,12 @@ export function useWizard(options?: AvatarOptions | null) {
     setStep(5) // Generate step
   }
 
+  // Go back to Generate step to edit options (no auto-generate)
+  const goBackFromDownload = () => {
+    setState((prev) => ({ ...prev, generatedImage: null }))
+    setStep(5) // Generate step
+  }
+
   // Clear the auto-generate flag after it's been consumed
   const clearAutoGenerate = () => {
     setShouldAutoGenerate(false)
@@ -103,6 +110,7 @@ export function useWizard(options?: AvatarOptions | null) {
     updateState,
     reset,
     regenerate,
+    goBackFromDownload,
     shouldAutoGenerate,
     clearAutoGenerate,
     isCustomCategory,

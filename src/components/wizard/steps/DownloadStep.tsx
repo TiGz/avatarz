@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { WizardHook } from '@/hooks/useWizard'
-import { Download, RefreshCw, Images, RotateCw } from 'lucide-react'
+import { Download, RefreshCw, Images, RotateCw, ArrowLeft, Share2, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface DownloadStepProps {
@@ -10,7 +10,7 @@ interface DownloadStepProps {
 }
 
 export function DownloadStep({ wizard }: DownloadStepProps) {
-  const { state, reset, regenerate } = wizard
+  const { state, reset, regenerate, goBackFromDownload } = wizard
   const [downloading, setDownloading] = useState(false)
 
   const generateFilename = () => {
@@ -75,6 +75,20 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
     }
   }
 
+  const handleShare = async () => {
+    if (!state.shareUrl) return
+    try {
+      if (navigator.share) {
+        await navigator.share({ url: state.shareUrl })
+      } else {
+        await navigator.clipboard.writeText(state.shareUrl)
+        toast.success('Link copied!')
+      }
+    } catch {
+      // User cancelled or error - ignore
+    }
+  }
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-white text-center">
@@ -92,6 +106,14 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
 
       {/* Actions */}
       <div className="flex flex-wrap justify-center gap-4">
+        <Button
+          variant="outline"
+          onClick={goBackFromDownload}
+          className="bg-transparent border-white/20 text-white hover:bg-white/10"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
         <Button
           variant="outline"
           onClick={reset}
@@ -132,6 +154,30 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
             </>
           )}
         </Button>
+        {state.shareUrl && (
+          <>
+            <Button
+              variant="outline"
+              onClick={handleShare}
+              className="bg-transparent border-white/20 text-white hover:bg-white/10"
+            >
+              <Share2 className="mr-2 h-4 w-4" />
+              Share
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                await navigator.clipboard.writeText(state.shareUrl!)
+                toast.success('Link copied!')
+              }}
+              className="bg-transparent border-white/20 text-white hover:bg-white/10"
+              title="Copy link"
+            >
+              <Copy className="mr-2 h-4 w-4" />
+              Copy Link
+            </Button>
+          </>
+        )}
       </div>
     </div>
   )
