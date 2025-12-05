@@ -98,7 +98,8 @@ serve(async (req) => {
     // Use origin header to support both local dev and production
     // Origin header only includes protocol+host, so we need to add /avatarz for production
     const origin = req.headers.get('origin') || 'https://adamchesney.com'
-    const isProduction = origin.includes('adamchesney.com')
+    const productionDomains = ['adamchesney.com', 'tigz.me']
+    const isProduction = productionDomains.some(domain => origin.includes(domain))
     const baseUrl = isProduction ? `${origin}/avatarz` : origin
     const redirectTo = `${baseUrl}/#/`
 

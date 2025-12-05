@@ -21,7 +21,8 @@ export function AvatarCard({ generation, index, onView, onDownload, onDelete }: 
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: index * 0.05 }}
-      className="group relative rounded-xl overflow-hidden bg-white/5 border border-white/10"
+      className="group relative rounded-xl overflow-hidden bg-white/5 border border-white/10 cursor-pointer sm:cursor-default"
+      onClick={() => onView(generation)}
     >
       {/* Image - uses thumbnail for faster loading */}
       <div className="aspect-square">
@@ -39,13 +40,16 @@ export function AvatarCard({ generation, index, onView, onDownload, onDelete }: 
         )}
       </div>
 
-      {/* Overlay on hover */}
-      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+      {/* Overlay on hover - hidden on mobile (touch devices don't have hover) */}
+      <div className="absolute inset-0 bg-black/60 opacity-0 transition-opacity hidden sm:flex sm:group-hover:opacity-100 items-center justify-center gap-2">
         <Button
           size="icon"
           variant="secondary"
           className="h-10 w-10"
-          onClick={() => onView(generation)}
+          onClick={(e) => {
+            e.stopPropagation()
+            onView(generation)
+          }}
         >
           <Eye className="h-5 w-5" />
         </Button>
@@ -53,7 +57,10 @@ export function AvatarCard({ generation, index, onView, onDownload, onDelete }: 
           size="icon"
           variant="secondary"
           className="h-10 w-10"
-          onClick={() => onDownload(generation)}
+          onClick={(e) => {
+            e.stopPropagation()
+            onDownload(generation)
+          }}
         >
           <Download className="h-5 w-5" />
         </Button>

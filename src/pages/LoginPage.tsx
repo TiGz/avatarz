@@ -18,16 +18,6 @@ export function LoginPage() {
         />
       </motion.div>
 
-      {/* Tagline */}
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
-        className="text-gray-400 text-lg mb-6"
-      >
-        Transform your photos into stunning avatars
-      </motion.p>
-
       {/* Community Creations */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}

@@ -63,14 +63,14 @@ export function AvatarModal({ generation, onClose, onDownload, onDelete, deletin
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+        className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm"
         onClick={onClose}
       >
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="relative max-w-3xl w-full bg-gray-900 rounded-2xl overflow-hidden"
+          className="relative w-full h-full sm:h-auto sm:max-w-3xl bg-gray-900 sm:rounded-2xl overflow-hidden overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Close button */}
@@ -81,9 +81,9 @@ export function AvatarModal({ generation, onClose, onDownload, onDelete, deletin
             <X className="h-5 w-5" />
           </button>
 
-          <div className="flex flex-col md:flex-row">
+          <div className="flex flex-col sm:flex-row">
             {/* Image - progressive loading from thumbnail to full resolution */}
-            <div className="md:w-2/3 aspect-square bg-black relative overflow-hidden">
+            <div className="w-full sm:w-2/3 aspect-square bg-black relative overflow-hidden flex-shrink-0">
               {/* Show thumbnail immediately as placeholder */}
               {generation.thumbnailUrl && (
                 <img
@@ -120,8 +120,8 @@ export function AvatarModal({ generation, onClose, onDownload, onDelete, deletin
             </div>
 
             {/* Details */}
-            <div className="md:w-1/3 p-6 space-y-4">
-              <h2 className="text-xl font-bold text-white">Avatar Details</h2>
+            <div className="w-full sm:w-1/3 p-4 sm:p-6 space-y-3 sm:space-y-4">
+              <h2 className="text-lg sm:text-xl font-bold text-white">Avatar Details</h2>
 
               <div className="space-y-3">
                 <div className="flex items-center gap-3 text-gray-300">
@@ -175,10 +175,10 @@ export function AvatarModal({ generation, onClose, onDownload, onDelete, deletin
               )}
 
               {/* Action buttons */}
-              <div className="space-y-2">
+              <div className="flex gap-2 sm:flex-col sm:space-y-2 sm:gap-0 pb-4 sm:pb-0">
                 <Button
                   onClick={() => onDownload(generation)}
-                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                  className="flex-1 sm:w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
                 >
                   <Download className="mr-2 h-4 w-4" />
                   Download
@@ -187,7 +187,7 @@ export function AvatarModal({ generation, onClose, onDownload, onDelete, deletin
                   <Button
                     variant="outline"
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="w-full border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                    className="flex-1 sm:w-full border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete
