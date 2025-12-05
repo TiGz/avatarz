@@ -40,46 +40,50 @@ interface GeneratePromptPreviewProps {
   onClose: () => void
   state: WizardState
   stylePrompt?: string
+  useLegacyOptions?: boolean
 }
 
-function buildPrompt(state: WizardState, stylePrompt: string): string {
+function buildPrompt(state: WizardState, stylePrompt: string, useLegacyOptions: boolean): string {
   const parts: string[] = []
 
   // Style prompt first
   parts.push(stylePrompt)
 
-  // Age modification
-  const agePrompt = AGE_PROMPTS[state.ageModification || 'normal']
-  if (agePrompt) parts.push(agePrompt)
+  // Only add legacy options if style uses them (matches edge function behavior)
+  if (useLegacyOptions) {
+    // Age modification
+    const agePrompt = AGE_PROMPTS[state.ageModification || 'normal']
+    if (agePrompt) parts.push(agePrompt)
 
-  // Background (always add)
-  const bgPrompt = state.keepBackground ? BACKGROUND_PROMPTS.keep : BACKGROUND_PROMPTS.remove
-  parts.push(bgPrompt)
+    // Background
+    const bgPrompt = state.keepBackground ? BACKGROUND_PROMPTS.keep : BACKGROUND_PROMPTS.remove
+    parts.push(bgPrompt)
 
-  // Custom text
-  if (state.customTextEnabled && state.customText.trim()) {
-    parts.push(state.customText.trim())
+    // Custom text
+    if (state.customTextEnabled && state.customText.trim()) {
+      parts.push(state.customText.trim())
+    }
+
+    // Crop
+    const cropPrompt = CROP_PROMPTS[state.cropType] || ''
+    if (cropPrompt) parts.push(cropPrompt)
+
+    // Name
+    if (state.showName && state.name && state.namePlacement) {
+      const placementPrompt = state.namePlacement === 'custom' && state.customPlacement
+        ? state.customPlacement.trim()
+        : NAME_PLACEMENT_PROMPTS[state.namePlacement] || ''
+      parts.push(`Include the name "${state.name}" ${placementPrompt}.`)
+    }
   }
 
-  // Crop
-  const cropPrompt = CROP_PROMPTS[state.cropType] || ''
-  if (cropPrompt) parts.push(cropPrompt)
-
-  // Name
-  if (state.showName && state.name && state.namePlacement) {
-    const placementPrompt = state.namePlacement === 'custom' && state.customPlacement
-      ? state.customPlacement.trim()
-      : NAME_PLACEMENT_PROMPTS[state.namePlacement] || ''
-    parts.push(`Include the name "${state.name}" ${placementPrompt}.`)
-  }
-
-  // System suffix
+  // System suffix (always add)
   parts.push('Keep the original face recognizable and maintain their identity. High quality output.')
 
   return parts.join(' ').trim()
 }
 
-export function GeneratePromptPreview({ isOpen, onClose, state, stylePrompt }: GeneratePromptPreviewProps) {
+export function GeneratePromptPreview({ isOpen, onClose, state, stylePrompt, useLegacyOptions = true }: GeneratePromptPreviewProps) {
   const [copied, setCopied] = useState(false)
 
   // Reset copied state when modal opens/closes
@@ -100,7 +104,7 @@ export function GeneratePromptPreview({ isOpen, onClose, state, stylePrompt }: G
     return () => window.removeEventListener('keydown', handleEsc)
   }, [isOpen, onClose])
 
-  const prompt = buildPrompt(state, stylePrompt || '')
+  const prompt = buildPrompt(state, stylePrompt || '', useLegacyOptions)
 
   const handleCopy = async () => {
     try {

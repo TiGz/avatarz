@@ -336,120 +336,11 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
     )
   }
 
-  // Special styles (non-legacy) - simplified generate view
-  const isSpecialStyle = selectedStyle && !selectedStyle.useLegacyOptions
+  // Unified view for all predefined styles (both legacy and special)
   const isMultiPhoto = state.selectedPhotoIds.length > 0
+  const isLegacyStyle = selectedStyle?.useLegacyOptions ?? true
+  const hasInputValues = Object.keys(state.inputValues).length > 0
 
-  if (isSpecialStyle) {
-    const canGenerate = !(quota?.remaining === 0 && !quota?.is_admin)
-
-    return (
-      <div className="space-y-6">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-white">
-            Ready to generate!
-          </h2>
-          <p className="text-gray-400 mt-2">
-            {selectedStyle.emoji} {selectedStyle.label}
-          </p>
-        </div>
-
-        {/* Quota display */}
-        <div className="flex justify-center">
-          <QuotaDisplay />
-        </div>
-
-        {/* Summary for special styles */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 max-w-md mx-auto">
-          {/* Photo preview(s) */}
-          {isMultiPhoto ? (
-            <div className="flex gap-2 justify-center mb-4 flex-wrap">
-              {state.selectedPhotos.map((photo, idx) => (
-                <div key={photo.id} className="w-16 h-16 rounded-xl overflow-hidden bg-white/10 relative">
-                  <img
-                    src={photo.url}
-                    alt={`Photo ${idx + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-1 left-1 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-xs font-bold text-white">
-                    {idx + 1}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : state.imageData ? (
-            <div className="flex justify-center mb-4">
-              <div className="w-24 h-24 rounded-xl overflow-hidden">
-                <img
-                  src={state.imageData}
-                  alt="Your photo"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
-          ) : null}
-
-          <div className="text-center text-sm text-gray-400">
-            {isMultiPhoto && (
-              <p>{state.selectedPhotoIds.length} photos selected</p>
-            )}
-            {Object.keys(state.inputValues).length > 0 && (
-              <div className="mt-2 space-y-1">
-                {Object.entries(state.inputValues).map(([key, value]) => (
-                  <p key={key}>
-                    <span className="text-gray-500 capitalize">{key.replace('_', ' ')}: </span>
-                    <span className="text-white">{value}</span>
-                  </p>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Privacy toggle */}
-          <div className="mt-4 pt-4 border-t border-white/10">
-            <label className="flex items-center gap-3 cursor-pointer group">
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={!state.isPublic}
-                  onChange={(e) => updateState({ isPublic: !e.target.checked })}
-                  className="sr-only peer"
-                />
-                <div className="w-5 h-5 rounded border border-white/30 bg-white/5 peer-checked:bg-purple-500 peer-checked:border-purple-500 transition-colors flex items-center justify-center">
-                  {!state.isPublic && <Lock className="w-3 h-3 text-white" />}
-                </div>
-              </div>
-              <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
-                Keep my avatar private
-              </span>
-            </label>
-          </div>
-        </div>
-
-        <div className="flex justify-center gap-4">
-          <Button
-            variant="outline"
-            onClick={prevStep}
-            className="bg-transparent border-white/20 text-white hover:bg-white/10"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-          <Button
-            onClick={generate}
-            size="lg"
-            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-            disabled={!canGenerate}
-          >
-            <Sparkles className="mr-2 h-5 w-5" />
-            Generate Avatar
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  // Standard/legacy flow - show summary and generate button
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-white text-center">
@@ -463,18 +354,47 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
 
       {/* Summary */}
       <div className="bg-white/5 border border-white/10 rounded-2xl p-6 max-w-md mx-auto">
-        <div className="flex gap-4">
-          <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0">
-            <img
-              src={state.imageData!}
-              alt="Your photo"
-              className="w-full h-full object-cover"
-            />
+        {/* Photo preview - handles both single and multi-photo */}
+        {isMultiPhoto ? (
+          <div className="flex gap-2 justify-center mb-4 flex-wrap">
+            {state.selectedPhotos.map((photo, idx) => (
+              <div key={photo.id} className="w-16 h-16 rounded-xl overflow-hidden bg-white/10 relative">
+                <img
+                  src={photo.url}
+                  alt={`Photo ${idx + 1}`}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-1 left-1 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-xs font-bold text-white">
+                  {idx + 1}
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="space-y-1 text-sm">
-            <div className="text-gray-400">
-              Style: <span className="text-white capitalize">{state.style.replace('-', ' ')}</span>
+        ) : state.imageData ? (
+          <div className="flex justify-center mb-4">
+            <div className="w-24 h-24 rounded-xl overflow-hidden">
+              <img
+                src={state.imageData}
+                alt="Your photo"
+                className="w-full h-full object-cover"
+              />
             </div>
+          </div>
+        ) : null}
+
+        {/* Style info - always show style name */}
+        <div className="text-center mb-4">
+          <p className="text-gray-400">
+            {selectedStyle?.emoji} <span className="text-white">{selectedStyle?.label || state.style.replace('-', ' ')}</span>
+          </p>
+          {isMultiPhoto && (
+            <p className="text-sm text-gray-500 mt-1">{state.selectedPhotoIds.length} photos</p>
+          )}
+        </div>
+
+        {/* Legacy options summary - only for useLegacyOptions styles */}
+        {isLegacyStyle && (
+          <div className="space-y-1 text-sm text-center border-t border-white/10 pt-4">
             <div className="text-gray-400">
               Crop: <span className="text-white">{
                 state.cropType === 'floating-head' ? 'Floating Head' :
@@ -495,7 +415,19 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
               </div>
             )}
           </div>
-        </div>
+        )}
+
+        {/* Dynamic inputs - for parameterized styles */}
+        {hasInputValues && (
+          <div className="space-y-1 text-sm text-center border-t border-white/10 pt-4">
+            {Object.entries(state.inputValues).map(([key, value]) => (
+              <div key={key} className="text-gray-400">
+                <span className="capitalize">{key.replace('_', ' ')}: </span>
+                <span className="text-white">{value}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Privacy toggle */}
         <div className="mt-4 pt-4 border-t border-white/10">
@@ -522,7 +454,7 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
           </p>
         </div>
 
-        {/* Preview Prompt Button */}
+        {/* Preview Prompt Button - available for all predefined styles */}
         {selectedStyle && (
           <div className="mt-4 pt-4 border-t border-white/10">
             <Button
@@ -565,6 +497,7 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
           onClose={() => setShowPromptPreview(false)}
           state={state}
           stylePrompt={selectedStyle.prompt}
+          useLegacyOptions={selectedStyle.useLegacyOptions}
         />
       )}
     </div>
