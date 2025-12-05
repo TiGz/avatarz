@@ -9,6 +9,7 @@ import { useInviteQuota } from '@/hooks/useInviteQuota'
 import { LogOut, Settings, Image, FolderOpen, Users, X, Sparkles } from 'lucide-react'
 import { Header } from '@/components/ui/Header'
 import { QuotaDisplay } from '@/components/ui/QuotaDisplay'
+import { InstallButton } from '@/components/pwa/InstallButton'
 import { PublicAvatarShowcase } from '@/components/ui/PublicAvatarShowcase'
 import { InviteManager } from '@/components/invite/InviteManager'
 import { InviteQuotaIndicator } from '@/components/invite/InviteQuotaIndicator'
@@ -39,6 +40,7 @@ export function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black">
       <Header>
+        <InstallButton />
         <QuotaDisplay compact />
         <Link to="/photos" className="hidden sm:block">
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">

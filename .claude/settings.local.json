@@ -56,7 +56,11 @@
       "Bash(gh run list:*)",
       "Skill(compounding-engineering:frontend-design)",
       "Bash(ls:*)",
-      "Bash(identify:*)"
+      "Bash(identify:*)",
+      "Bash(python3:*)",
+      "Bash(git -C /Users/adam/dev/personal/avatarz log --oneline -15)",
+      "Bash(git -C /Users/adam/dev/personal/avatarz show a3e1f0a --stat)",
+      "Bash(git -C /Users/adam/dev/personal/avatarz show a3e1f0a)"
     ],
     "deny": [],
     "ask": []
