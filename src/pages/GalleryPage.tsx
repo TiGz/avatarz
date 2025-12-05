@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
@@ -21,10 +21,54 @@ import {
 
 export function GalleryPage() {
   const navigate = useNavigate()
-  const { generations, loading, downloadAvatar, deleteGeneration, refresh } = useGenerations()
-  const [selectedGeneration, setSelectedGeneration] = useState<Generation | null>(null)
+  const {
+    generations,
+    loading,
+    loadingMore,
+    hasMore,
+    loadMore,
+    downloadAvatar,
+    deleteGeneration,
+    ensureFullUrl,
+    refresh,
+  } = useGenerations()
+  const [selectedGenerationId, setSelectedGenerationId] = useState<string | null>(null)
+
+  // Get the selected generation from the list (so it updates when URL is fetched)
+  const selectedGeneration = selectedGenerationId
+    ? generations.find((g) => g.id === selectedGenerationId) || null
+    : null
   const [deleteTarget, setDeleteTarget] = useState<Generation | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  // Infinite scroll sentinel
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasMore && !loadingMore) {
+          loadMore()
+        }
+      },
+      { rootMargin: '200px' }
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMore, loadingMore, loadMore])
+
+  const handleViewGeneration = useCallback(
+    async (generation: Generation) => {
+      setSelectedGenerationId(generation.id)
+      // Fetch full-res URL in background for modal
+      await ensureFullUrl(generation)
+    },
+    [ensureFullUrl]
+  )
 
   const handleDeleteFromCard = (generation: Generation) => {
     setDeleteTarget(generation)
@@ -35,7 +79,7 @@ export function GalleryPage() {
     const success = await deleteGeneration(generation.id)
     setDeleting(false)
     if (success) {
-      setSelectedGeneration(null)
+      setSelectedGenerationId(null)
     }
     return success
   }
@@ -47,8 +91,8 @@ export function GalleryPage() {
     setDeleting(false)
     if (success) {
       setDeleteTarget(null)
-      if (selectedGeneration?.id === deleteTarget.id) {
-        setSelectedGeneration(null)
+      if (selectedGenerationId === deleteTarget.id) {
+        setSelectedGenerationId(null)
       }
     }
   }
@@ -85,7 +129,8 @@ export function GalleryPage() {
 
             {!loading && generations.length > 0 && (
               <p className="text-gray-400">
-                {generations.length} avatar{generations.length !== 1 ? 's' : ''} generated
+                {generations.length} avatar{generations.length !== 1 ? 's' : ''}{' '}
+                {hasMore && 'loaded'}
               </p>
             )}
           </div>
@@ -117,18 +162,37 @@ export function GalleryPage() {
 
           {/* Avatar Grid */}
           {!loading && generations.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {generations.map((generation, index) => (
-                <AvatarCard
-                  key={generation.id}
-                  generation={generation}
-                  index={index}
-                  onView={setSelectedGeneration}
-                  onDownload={downloadAvatar}
-                  onDelete={handleDeleteFromCard}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-4">
+                {generations.map((generation, index) => (
+                  <AvatarCard
+                    key={generation.id}
+                    generation={generation}
+                    index={index}
+                    onView={handleViewGeneration}
+                    onDownload={downloadAvatar}
+                    onDelete={handleDeleteFromCard}
+                  />
+                ))}
+              </div>
+
+              {/* Infinite scroll sentinel */}
+              <div ref={sentinelRef} className="h-4 mt-4" />
+
+              {/* Loading more indicator */}
+              {loadingMore && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-purple-500" />
+                </div>
+              )}
+
+              {/* End of list */}
+              {!hasMore && generations.length > 12 && (
+                <p className="text-center text-gray-500 py-4">
+                  You've seen all {generations.length} avatars
+                </p>
+              )}
+            </>
           )}
         </motion.div>
       </main>
@@ -137,7 +201,7 @@ export function GalleryPage() {
       {selectedGeneration && (
         <AvatarModal
           generation={selectedGeneration}
-          onClose={() => setSelectedGeneration(null)}
+          onClose={() => setSelectedGenerationId(null)}
           onDownload={downloadAvatar}
           onDelete={handleDeleteFromModal}
           deleting={deleting}

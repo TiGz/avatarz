@@ -45,23 +45,33 @@ interface GeneratePromptPreviewProps {
 }
 
 // Render prompt with template substitution (matches edge function logic)
+// Uses loop to handle nested placeholders (e.g., {{show_name}} contains {{dj_name}})
 function renderPromptTemplate(
   prompt: string,
   values: Record<string, string>,
   schema: InputSchema | null | undefined
 ): string {
-  return prompt.replace(/\{\{(\w+)\}\}/g, (_, key) => {
-    const value = values[key] || ''
+  let result = prompt
+  let prevResult = ''
 
-    // Check if this field has options with prompt values
-    const field = schema?.fields?.find(f => f.id === key)
-    if (field?.options) {
-      const option = field.options.find(o => o.value === value)
-      return option?.prompt || value
-    }
+  // Keep substituting until no changes (handles nested placeholders)
+  while (result !== prevResult) {
+    prevResult = result
+    result = result.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+      const value = values[key] || ''
 
-    return value
-  })
+      // Check if this field has options with prompt values
+      const field = schema?.fields?.find(f => f.id === key)
+      if (field?.options) {
+        const option = field.options.find(o => o.value === value)
+        return option?.prompt || value
+      }
+
+      return value
+    })
+  }
+
+  return result
 }
 
 function buildPrompt(

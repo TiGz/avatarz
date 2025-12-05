@@ -668,23 +668,33 @@ Deno.serve(async (req) => {
 
     // Apply template variable substitution if inputValues provided
     // For radio/select fields, resolve the option's prompt value instead of the raw value
+    // Uses loop to handle nested placeholders (e.g., {{show_name}} contains {{dj_name}})
     const renderPrompt = (
       prompt: string,
       values: Record<string, string>,
       schema: InputSchema | null
     ): string => {
-      return prompt.replace(/\{\{(\w+)\}\}/g, (_, key) => {
-        const value = values[key] || ''
+      let result = prompt
+      let prevResult = ''
 
-        // Check if this field has options with prompt values
-        const field = schema?.fields?.find(f => f.id === key)
-        if (field?.options) {
-          const option = field.options.find(o => o.value === value)
-          return option?.prompt || value
-        }
+      // Keep substituting until no changes (handles nested placeholders)
+      while (result !== prevResult) {
+        prevResult = result
+        result = result.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+          const value = values[key] || ''
 
-        return value
-      })
+          // Check if this field has options with prompt values
+          const field = schema?.fields?.find(f => f.id === key)
+          if (field?.options) {
+            const option = field.options.find(o => o.value === value)
+            return option?.prompt || value
+          }
+
+          return value
+        })
+      }
+
+      return result
     }
 
     if (validatedReq.inputValues && Object.keys(validatedReq.inputValues).length > 0) {
@@ -890,13 +900,11 @@ Deno.serve(async (req) => {
       // Continue without thumbnail - don't fail the whole request
     }
 
-    // Generate permanent share URL for public avatars (~100 years expiry)
+    // Generate public share URL for public avatars (bucket is now public)
     let shareUrl: string | null = null
     if (thumbnailFilename && validatedReq.isPublic !== false) {
-      const { data: shareUrlData } = await supabaseAdmin.storage
-        .from('avatar-thumbnails')
-        .createSignedUrl(thumbnailFilename, 3153600000) // ~100 years
-      shareUrl = shareUrlData?.signedUrl || null
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+      shareUrl = `${supabaseUrl}/storage/v1/object/public/avatar-thumbnails/${thumbnailFilename}`
     }
 
     // Create generation record in database
@@ -937,12 +945,11 @@ Deno.serve(async (req) => {
       .from('avatars')
       .createSignedUrl(avatarFilename, 3600) // 1 hour
 
+    // Build public thumbnail URL (bucket is now public)
     let thumbnailUrl: string | undefined
     if (thumbnailFilename) {
-      const { data: thumbUrlData } = await supabaseAdmin.storage
-        .from('avatar-thumbnails')
-        .createSignedUrl(thumbnailFilename, 3600)
-      thumbnailUrl = thumbUrlData?.signedUrl
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+      thumbnailUrl = `${supabaseUrl}/storage/v1/object/public/avatar-thumbnails/${thumbnailFilename}`
     }
 
     return new Response(

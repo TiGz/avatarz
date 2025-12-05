@@ -20,7 +20,7 @@ export function AvatarCard({ generation, index, onView, onDownload, onDelete }: 
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: index * 0.05 }}
+      transition={{ delay: Math.min(index, 11) * 0.03 }}
       className="group relative rounded-xl overflow-hidden bg-white/5 border border-white/10 cursor-pointer sm:cursor-default"
       onClick={() => onView(generation)}
     >

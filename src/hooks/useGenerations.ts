@@ -1,15 +1,26 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from './useAuth'
 import { Generation } from '@/types'
 import { toast } from 'sonner'
 
+const PAGE_SIZE = 12
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+
+// Build public thumbnail URL (no API call needed)
+function getPublicThumbnailUrl(path: string): string {
+  return `${SUPABASE_URL}/storage/v1/object/public/avatar-thumbnails/${path}`
+}
+
 export function useGenerations() {
   const { user } = useAuth()
   const [generations, setGenerations] = useState<Generation[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const pageRef = useRef(0)
 
-  const fetchGenerations = useCallback(async () => {
+  const fetchGenerations = useCallback(async (page: number, append = false) => {
     if (!user) {
       setGenerations([])
       setLoading(false)
@@ -17,58 +28,87 @@ export function useGenerations() {
     }
 
     try {
+      const from = page * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
+
       const { data, error } = await supabase
         .from('generations')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+        .range(from, to)
 
       if (error) throw error
 
-      // Get signed URLs for each avatar (full + thumbnail)
-      const generationsWithUrls = await Promise.all(
-        (data || []).map(async (gen) => {
-          // Fetch full-resolution URL
-          const { data: urlData } = await supabase.storage
-            .from('avatars')
-            .createSignedUrl(gen.output_storage_path, 3600) // 1 hour expiry
+      // Build URLs - thumbnails are public, full-res needs signing on demand
+      const generationsWithUrls = (data || []).map((gen) => ({
+        ...gen,
+        // Public thumbnail URL (no API call)
+        thumbnailUrl: gen.thumbnail_storage_path
+          ? getPublicThumbnailUrl(gen.thumbnail_storage_path)
+          : undefined,
+        // Full URL will be fetched on demand when viewing/downloading
+        url: undefined,
+      }))
 
-          // Fetch thumbnail URL if available
-          let thumbnailUrl: string | undefined
-          if (gen.thumbnail_storage_path) {
-            const { data: thumbData } = await supabase.storage
-              .from('avatar-thumbnails')
-              .createSignedUrl(gen.thumbnail_storage_path, 3600)
-            thumbnailUrl = thumbData?.signedUrl
-          }
+      if (append) {
+        setGenerations((prev) => [...prev, ...generationsWithUrls])
+      } else {
+        setGenerations(generationsWithUrls)
+      }
 
-          return {
-            ...gen,
-            url: urlData?.signedUrl || undefined,
-            // Fall back to full URL if no thumbnail
-            thumbnailUrl: thumbnailUrl || urlData?.signedUrl || undefined,
-          }
-        })
-      )
-
-      setGenerations(generationsWithUrls)
+      setHasMore(generationsWithUrls.length === PAGE_SIZE)
     } catch (error) {
       console.error('Error fetching generations:', error)
       toast.error('Failed to load gallery')
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }, [user])
 
+  // Initial load
   useEffect(() => {
-    fetchGenerations()
+    pageRef.current = 0
+    setLoading(true)
+    setHasMore(true)
+    fetchGenerations(0)
   }, [fetchGenerations])
 
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return
+    setLoadingMore(true)
+    pageRef.current += 1
+    await fetchGenerations(pageRef.current, true)
+  }, [loadingMore, hasMore, fetchGenerations])
+
+  const refresh = useCallback(async () => {
+    pageRef.current = 0
+    setLoading(true)
+    setHasMore(true)
+    await fetchGenerations(0)
+  }, [fetchGenerations])
+
+  // Get signed URL for full-resolution avatar (called on demand)
   const getSignedUrl = async (storagePath: string): Promise<string | null> => {
     const { data } = await supabase.storage
       .from('avatars')
       .createSignedUrl(storagePath, 3600)
     return data?.signedUrl || null
+  }
+
+  // Fetch full-res URL for a specific generation (for modal/download)
+  const ensureFullUrl = async (generation: Generation): Promise<string | null> => {
+    if (generation.url) return generation.url
+
+    const url = await getSignedUrl(generation.output_storage_path)
+    if (url) {
+      // Update local state with the fetched URL
+      setGenerations((prev) =>
+        prev.map((g) => (g.id === generation.id ? { ...g, url } : g))
+      )
+    }
+    return url
   }
 
   const deleteGeneration = async (generationId: string): Promise<boolean> => {
@@ -112,21 +152,23 @@ export function useGenerations() {
   }
 
   const downloadAvatar = async (generation: Generation) => {
-    if (!generation.url) {
-      toast.error('Avatar not available')
-      return
-    }
-
     try {
-      const response = await fetch(generation.url)
+      // Ensure we have the full-res URL
+      const url = await ensureFullUrl(generation)
+      if (!url) {
+        toast.error('Avatar not available')
+        return
+      }
+
+      const response = await fetch(url)
       const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
+      const blobUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url
+      a.href = blobUrl
       a.download = `avatar_${generation.style}_${new Date(generation.created_at).toISOString().split('T')[0]}.png`
       document.body.appendChild(a)
       a.click()
-      window.URL.revokeObjectURL(url)
+      window.URL.revokeObjectURL(blobUrl)
       document.body.removeChild(a)
       toast.success('Download started!')
     } catch (error) {
@@ -138,9 +180,13 @@ export function useGenerations() {
   return {
     generations,
     loading,
+    loadingMore,
+    hasMore,
+    loadMore,
     getSignedUrl,
+    ensureFullUrl,
     downloadAvatar,
     deleteGeneration,
-    refresh: fetchGenerations,
+    refresh,
   }
 }

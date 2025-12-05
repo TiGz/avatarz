@@ -59,23 +59,13 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Generate signed URLs for each thumbnail
-    const avatarsWithUrls = await Promise.all(
-      (avatars as PublicAvatar[]).map(async (avatar) => {
-        const { data: signedUrlData } = await supabaseAdmin.storage
-          .from('avatar-thumbnails')
-          .createSignedUrl(avatar.thumbnail_path, 3600) // 1 hour expiry
-
-        return {
-          id: avatar.avatar_id,
-          thumbnailUrl: signedUrlData?.signedUrl || null,
-          style: avatar.avatar_style,
-        }
-      })
-    )
-
-    // Filter out any that failed to get signed URLs
-    const validAvatars = avatarsWithUrls.filter(a => a.thumbnailUrl !== null)
+    // Build public URLs directly (no signed URLs needed - bucket is public)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+    const validAvatars = (avatars as PublicAvatar[]).map((avatar) => ({
+      id: avatar.avatar_id,
+      thumbnailUrl: `${supabaseUrl}/storage/v1/object/public/avatar-thumbnails/${avatar.thumbnail_path}`,
+      style: avatar.avatar_style,
+    }))
 
     return new Response(
       JSON.stringify({ avatars: validAvatars }),
