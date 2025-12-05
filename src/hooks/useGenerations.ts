@@ -15,6 +15,7 @@ function getPublicThumbnailUrl(path: string): string {
 export function useGenerations() {
   const { user } = useAuth()
   const [generations, setGenerations] = useState<Generation[]>([])
+  const [totalCount, setTotalCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -31,25 +32,49 @@ export function useGenerations() {
       const from = page * PAGE_SIZE
       const to = from + PAGE_SIZE - 1
 
-      const { data, error } = await supabase
+      console.log('[useGenerations] Fetching page', page, 'range', from, '-', to)
+
+      const { data, error, count } = await supabase
         .from('generations')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .range(from, to)
 
       if (error) throw error
 
+      console.log('[useGenerations] Got', data?.length, 'items, total count:', count)
+
+      // Update total count on first fetch
+      if (page === 0 && count !== null) {
+        setTotalCount(count)
+      }
+
       // Build URLs - thumbnails are public, full-res needs signing on demand
-      const generationsWithUrls = (data || []).map((gen) => ({
-        ...gen,
-        // Public thumbnail URL (no API call)
-        thumbnailUrl: gen.thumbnail_storage_path
-          ? getPublicThumbnailUrl(gen.thumbnail_storage_path)
-          : undefined,
-        // Full URL will be fetched on demand when viewing/downloading
-        url: undefined,
-      }))
+      // For items without thumbnails (legacy), we'll fetch full-res URL
+      const generationsWithUrls = await Promise.all(
+        (data || []).map(async (gen) => {
+          if (gen.thumbnail_storage_path) {
+            // Has thumbnail - use public URL
+            return {
+              ...gen,
+              thumbnailUrl: getPublicThumbnailUrl(gen.thumbnail_storage_path),
+              url: undefined,
+            }
+          } else {
+            // Legacy item without thumbnail - fetch full-res URL
+            console.log('[useGenerations] Legacy item without thumbnail:', gen.id)
+            const { data: urlData } = await supabase.storage
+              .from('avatars')
+              .createSignedUrl(gen.output_storage_path, 3600)
+            return {
+              ...gen,
+              thumbnailUrl: urlData?.signedUrl,
+              url: urlData?.signedUrl,
+            }
+          }
+        })
+      )
 
       if (append) {
         setGenerations((prev) => [...prev, ...generationsWithUrls])
@@ -76,9 +101,14 @@ export function useGenerations() {
   }, [fetchGenerations])
 
   const loadMore = useCallback(async () => {
-    if (loadingMore || !hasMore) return
+    console.log('[useGenerations] loadMore called, loadingMore:', loadingMore, 'hasMore:', hasMore)
+    if (loadingMore || !hasMore) {
+      console.log('[useGenerations] loadMore skipped')
+      return
+    }
     setLoadingMore(true)
     pageRef.current += 1
+    console.log('[useGenerations] Loading page', pageRef.current)
     await fetchGenerations(pageRef.current, true)
   }, [loadingMore, hasMore, fetchGenerations])
 
@@ -179,6 +209,7 @@ export function useGenerations() {
 
   return {
     generations,
+    totalCount,
     loading,
     loadingMore,
     hasMore,

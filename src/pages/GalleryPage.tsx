@@ -23,6 +23,7 @@ export function GalleryPage() {
   const navigate = useNavigate()
   const {
     generations,
+    totalCount,
     loading,
     loadingMore,
     hasMore,
@@ -43,14 +44,28 @@ export function GalleryPage() {
 
   // Infinite scroll sentinel
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const hasMoreRef = useRef(hasMore)
+  const loadingMoreRef = useRef(loadingMore)
+
+  // Keep refs in sync
+  useEffect(() => {
+    hasMoreRef.current = hasMore
+    loadingMoreRef.current = loadingMore
+  }, [hasMore, loadingMore])
 
   useEffect(() => {
+    // Wait for loading to complete so sentinel is rendered
+    if (loading) return
+
     const sentinel = sentinelRef.current
+    console.log('[GalleryPage] Setting up observer, sentinel:', !!sentinel, 'loading:', loading)
     if (!sentinel) return
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && hasMore && !loadingMore) {
+        console.log('[GalleryPage] Intersection:', entry.isIntersecting, 'hasMore:', hasMoreRef.current, 'loadingMore:', loadingMoreRef.current)
+        if (entry.isIntersecting && hasMoreRef.current && !loadingMoreRef.current) {
+          console.log('[GalleryPage] Triggering loadMore')
           loadMore()
         }
       },
@@ -59,7 +74,7 @@ export function GalleryPage() {
 
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [hasMore, loadingMore, loadMore])
+  }, [loading, loadMore])
 
   const handleViewGeneration = useCallback(
     async (generation: Generation) => {
@@ -129,8 +144,9 @@ export function GalleryPage() {
 
             {!loading && generations.length > 0 && (
               <p className="text-gray-400">
-                {generations.length} avatar{generations.length !== 1 ? 's' : ''}{' '}
-                {hasMore && 'loaded'}
+                {generations.length}
+                {totalCount !== null && ` / ${totalCount}`}
+                {' '}avatar{(totalCount ?? generations.length) !== 1 ? 's' : ''}
               </p>
             )}
           </div>
