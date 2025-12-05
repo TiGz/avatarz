@@ -16,7 +16,7 @@ const MAX_STEP = 5
 
 const createInitialState = (options?: AvatarOptions | null): WizardState => ({
   imageData: null,
-  category: options?.categories[0]?.id || 'animated',
+  category: options?.categories[0]?.id || 'special',
   style: '', // Will be set when category is selected (first style in that category)
   customStyle: '',
   cropType: options?.cropTypes.find(c => c.id === 'portrait')?.id || 'portrait',
