@@ -1,28 +1,31 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { useWizard } from '@/hooks/useWizard'
+import { useWizard, WIZARD_STEPS } from '@/hooks/useWizard'
 import { useAvatarOptions } from '@/hooks/useAvatarOptions'
 import { useStylesForCategory } from '@/hooks/useStylesForCategory'
 import { StepIndicator } from './StepIndicator'
 import { CaptureStep } from './steps/CaptureStep'
 import { CategoryStep } from './steps/CategoryStep'
 import { StyleStep } from './steps/StyleStep'
-import { CropStep } from './steps/CropStep'
-import { NameStep } from './steps/NameStep'
+import { LegacyOptionsStep } from './steps/LegacyOptionsStep'
+import { DynamicInputsStep } from './steps/DynamicInputsStep'
 import { GenerateStep } from './steps/GenerateStep'
 import { DownloadStep } from './steps/DownloadStep'
 import { Loader2 } from 'lucide-react'
 
-// Step labels for standard flow
-const STANDARD_STEPS = ['Capture', 'Category', 'Style', 'Crop', 'Name', 'Generate', 'Download']
-// Step labels for custom category flow (skip Style, Crop, Name)
-const CUSTOM_STEPS = ['Capture', 'Category', 'Generate', 'Download']
+// New step flow: Category → Style → Capture → Options → Generate → Download
+// Step labels for standard flow (legacy options: Crop + Name)
+const LEGACY_STEPS = ['Category', 'Style', 'Photo', 'Options', 'Generate', 'Download']
+// Step labels for special styles (dynamic inputs or no options)
+const SPECIAL_STEPS = ['Category', 'Style', 'Photo', 'Customize', 'Generate', 'Download']
+// Step labels for custom category flow (skip Style)
+const CUSTOM_STEPS = ['Category', 'Photo', 'Generate', 'Download']
 
 export function WizardContainer() {
   const { options, loading } = useAvatarOptions()
   const wizard = useWizard(options)
 
-  // Only fetch styles when on Style step (2) or later - prevents HTTP requests while browsing categories
-  const shouldFetchStyles = wizard.step >= 2
+  // Only fetch styles when on Style step (1) or later
+  const shouldFetchStyles = wizard.step >= WIZARD_STEPS.STYLE
   const { styles } = useStylesForCategory(shouldFetchStyles ? wizard.state.category : null)
   const selectedStyle = styles.find(s => s.id === wizard.state.style) || null
 
@@ -35,37 +38,70 @@ export function WizardContainer() {
     )
   }
 
-  // Use different step labels based on category
-  const displaySteps = wizard.isCustomCategory ? CUSTOM_STEPS : STANDARD_STEPS
+  // Determine display steps based on category and style
+  const getDisplaySteps = () => {
+    if (wizard.isCustomCategory) return CUSTOM_STEPS
+    if (selectedStyle && !selectedStyle.useLegacyOptions) return SPECIAL_STEPS
+    return LEGACY_STEPS
+  }
+  const displaySteps = getDisplaySteps()
 
   // Map the current step to display step index (for step indicator)
   const getDisplayStepIndex = () => {
-    if (!wizard.isCustomCategory) return wizard.step
-    // For custom category: step 0→0, 1→1, 5→2, 6→3
-    switch (wizard.step) {
-      case 0: return 0  // Capture
-      case 1: return 1  // Category
-      case 5: return 2  // Generate
-      case 6: return 3  // Download
-      default: return wizard.step
+    if (wizard.isCustomCategory) {
+      // For custom category: Category(0)→0, Capture(2)→1, Generate(4)→2, Download(5)→3
+      switch (wizard.step) {
+        case WIZARD_STEPS.CATEGORY: return 0
+        case WIZARD_STEPS.CAPTURE: return 1
+        case WIZARD_STEPS.GENERATE: return 2
+        case WIZARD_STEPS.DOWNLOAD: return 3
+        default: return wizard.step
+      }
     }
+    return wizard.step
+  }
+
+  // Render the Options step based on style configuration
+  const renderOptionsStep = () => {
+    if (!selectedStyle) {
+      // Fallback to legacy options
+      return <LegacyOptionsStep wizard={wizard} options={options} />
+    }
+
+    if (selectedStyle.inputSchema && selectedStyle.inputSchema.fields.length > 0) {
+      // Dynamic inputs for special styles
+      return <DynamicInputsStep wizard={wizard} schema={selectedStyle.inputSchema} />
+    }
+
+    if (selectedStyle.useLegacyOptions) {
+      // Legacy flow: show combined options (crop, age, background, name)
+      return <LegacyOptionsStep wizard={wizard} options={options} />
+    }
+
+    // No options needed, auto-advance to generate
+    wizard.nextStep()
+    return null
   }
 
   const renderStep = () => {
     switch (wizard.step) {
-      case 0:
-        return <CaptureStep wizard={wizard} />
-      case 1:
+      case WIZARD_STEPS.CATEGORY:
         return <CategoryStep wizard={wizard} options={options} />
-      case 2:
+      case WIZARD_STEPS.STYLE:
         return <StyleStep wizard={wizard} options={options} />
-      case 3:
-        return <CropStep wizard={wizard} options={options} />
-      case 4:
-        return <NameStep wizard={wizard} options={options} />
-      case 5:
+      case WIZARD_STEPS.CAPTURE:
+        return (
+          <CaptureStep
+            wizard={wizard}
+            minPhotos={selectedStyle?.minPhotos ?? 1}
+            maxPhotos={selectedStyle?.maxPhotos ?? 1}
+          />
+        )
+      case WIZARD_STEPS.OPTIONS:
+        return renderOptionsStep()
+      case WIZARD_STEPS.GENERATE:
         return <GenerateStep wizard={wizard} selectedStyle={selectedStyle} />
-      case 6:
+      case WIZARD_STEPS.DOWNLOAD:
         return <DownloadStep wizard={wizard} />
       default:
         return null

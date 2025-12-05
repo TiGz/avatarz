@@ -27,6 +27,11 @@ interface StyleRow {
   emoji: string
   prompt: string
   sort_order: number
+  // New fields for multi-photo and parameterized styles
+  input_schema: { fields: Array<{ id: string; label: string; required: boolean; placeholder?: string }> } | null
+  min_photos: number
+  max_photos: number
+  use_legacy_options: boolean
 }
 
 interface NamePlacementDefinition {
@@ -143,9 +148,12 @@ const BACKGROUND_PROMPTS = {
 // ============================================================================
 
 interface GenerateAvatarRequest {
-  imageData: string
+  // Photo input - supports single image or multiple photo IDs
+  imageData?: string           // Single image (legacy)
+  photoIds?: string[]          // Array of photo IDs for multi-photo styles
+
   style: string
-  cropType: string
+  cropType?: string            // Optional now (only for legacy options)
   name?: string
   namePlacement?: string
   customStyle?: string
@@ -153,7 +161,11 @@ interface GenerateAvatarRequest {
   inputPhotoId?: string
   inputPhotoPath?: string
   isPublic?: boolean
-  // Generation options (standard mode only)
+
+  // Dynamic inputs (for styles with input_schema)
+  inputValues?: Record<string, string>
+
+  // Generation options (standard mode only - when use_legacy_options=true)
   keepBackground?: boolean
   ageModification?: 'normal' | 'younger' | 'older'
   customisationText?: string
@@ -206,25 +218,45 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
 
   const req = payload as GenerateAvatarRequest
 
-  // Validate imageData
-  if (!req.imageData || typeof req.imageData !== 'string') {
-    throw new Error('Missing or invalid imageData')
+  // Validate photo input - must have either imageData OR photoIds
+  const hasImageData = req.imageData && typeof req.imageData === 'string'
+  const hasPhotoIds = req.photoIds && Array.isArray(req.photoIds) && req.photoIds.length > 0
+
+  if (!hasImageData && !hasPhotoIds) {
+    throw new Error('Either imageData or photoIds is required')
   }
 
-  // Allow both data URLs and HTTP(S) URLs (signed URLs from storage)
-  const isDataUrl = req.imageData.startsWith('data:image/')
-  const isHttpUrl = req.imageData.startsWith('https://') || req.imageData.startsWith('http://')
+  // Validate imageData if provided
+  if (hasImageData) {
+    // Allow both data URLs and HTTP(S) URLs (signed URLs from storage)
+    const isDataUrl = req.imageData!.startsWith('data:image/')
+    const isHttpUrl = req.imageData!.startsWith('https://') || req.imageData!.startsWith('http://')
 
-  if (!isDataUrl && !isHttpUrl) {
-    throw new Error('Invalid image format')
+    if (!isDataUrl && !isHttpUrl) {
+      throw new Error('Invalid image format')
+    }
+
+    // Check size for data URLs (10MB limit)
+    if (isDataUrl) {
+      const base64Data = req.imageData!.split(',')[1] || ''
+      const sizeInBytes = (base64Data.length * 3) / 4
+      if (sizeInBytes > 10 * 1024 * 1024) {
+        throw new Error('Image exceeds 10MB limit')
+      }
+    }
   }
 
-  // Check size for data URLs (10MB limit)
-  if (isDataUrl) {
-    const base64Data = req.imageData.split(',')[1] || ''
-    const sizeInBytes = (base64Data.length * 3) / 4
-    if (sizeInBytes > 10 * 1024 * 1024) {
-      throw new Error('Image exceeds 10MB limit')
+  // Validate photoIds if provided
+  if (hasPhotoIds) {
+    if (req.photoIds!.length > 6) {
+      throw new Error('Maximum 6 photos allowed')
+    }
+    // Validate each ID is a valid UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    for (const photoId of req.photoIds!) {
+      if (typeof photoId !== 'string' || !uuidRegex.test(photoId)) {
+        throw new Error('Invalid photo ID format')
+      }
     }
   }
 
@@ -250,8 +282,8 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
     }
   }
 
-  // Validate cropType
-  if (!req.cropType || !CROP_MAP.has(req.cropType)) {
+  // Validate cropType (only required for legacy options - will be validated later based on style)
+  if (req.cropType && !CROP_MAP.has(req.cropType)) {
     throw new Error('Invalid crop type')
   }
 
@@ -277,6 +309,21 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
       }
       if (!/^[a-zA-Z0-9\s\-.,!]+$/.test(req.customPlacement)) {
         throw new Error('Custom placement contains invalid characters')
+      }
+    }
+  }
+
+  // Validate inputValues if provided
+  if (req.inputValues) {
+    if (typeof req.inputValues !== 'object') {
+      throw new Error('inputValues must be an object')
+    }
+    for (const [key, value] of Object.entries(req.inputValues)) {
+      if (typeof key !== 'string' || typeof value !== 'string') {
+        throw new Error('inputValues must be a string-to-string map')
+      }
+      if (value.length > 500) {
+        throw new Error('Input value exceeds maximum length (500 characters)')
       }
     }
   }
@@ -353,7 +400,7 @@ Deno.serve(async (req) => {
           .order('sort_order'),
         supabaseAnon
           .from('styles')
-          .select('id, category_id, label, emoji, sort_order')
+          .select('id, category_id, label, emoji, sort_order, input_schema, min_photos, max_photos, use_legacy_options')
           .eq('is_active', true)
           .order('sort_order'),
       ])
@@ -373,7 +420,16 @@ Deno.serve(async (req) => {
       )
 
       const styles = (stylesResult.data as StyleRow[]).map(
-        ({ id, category_id, label, emoji }) => ({ id, categoryId: category_id, label, emoji })
+        ({ id, category_id, label, emoji, input_schema, min_photos, max_photos, use_legacy_options }) => ({
+          id,
+          categoryId: category_id,
+          label,
+          emoji,
+          inputSchema: input_schema,
+          minPhotos: min_photos,
+          maxPhotos: max_photos,
+          useLegacyOptions: use_legacy_options,
+        })
       )
 
       return new Response(
@@ -462,49 +518,117 @@ Deno.serve(async (req) => {
     const payload = await req.json()
     const validatedReq = validateRequest(payload)
 
-    // If imageData is a signed URL, fetch the actual image
-    const imageData = validatedReq.imageData
-    let mimeType = 'image/jpeg'
-    let base64Data = ''
-
-    if (imageData.startsWith('data:image/')) {
-      // Data URL - extract base64
-      const imageMatch = imageData.match(/^data:(image\/\w+);base64,(.+)$/)
-      if (!imageMatch) {
-        throw new Error('Invalid image data format')
+    // Helper to convert image to base64
+    const imageToBase64 = async (imageData: string): Promise<{ mimeType: string; base64Data: string }> => {
+      if (imageData.startsWith('data:image/')) {
+        // Data URL - extract base64
+        const imageMatch = imageData.match(/^data:(image\/\w+);base64,(.+)$/)
+        if (!imageMatch) {
+          throw new Error('Invalid image data format')
+        }
+        return { mimeType: imageMatch[1], base64Data: imageMatch[2] }
+      } else {
+        // Signed URL - fetch image and convert to base64
+        console.log('Fetching image from signed URL...')
+        const imageResponse = await fetch(imageData)
+        if (!imageResponse.ok) {
+          throw new Error('Failed to fetch image from storage')
+        }
+        const imageBuffer = await imageResponse.arrayBuffer()
+        const uint8Array = new Uint8Array(imageBuffer)
+        // Convert to base64 in chunks to avoid stack overflow
+        let binary = ''
+        const chunkSize = 8192
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const chunk = uint8Array.subarray(i, i + chunkSize)
+          binary += String.fromCharCode(...chunk)
+        }
+        return {
+          mimeType: imageResponse.headers.get('content-type') || 'image/jpeg',
+          base64Data: btoa(binary)
+        }
       }
-      mimeType = imageMatch[1]
-      base64Data = imageMatch[2]
-    } else {
-      // Signed URL - fetch image and convert to base64
-      console.log('Fetching image from signed URL...')
-      const imageResponse = await fetch(imageData)
-      if (!imageResponse.ok) {
-        throw new Error('Failed to fetch image from storage')
-      }
-      const imageBuffer = await imageResponse.arrayBuffer()
-      const uint8Array = new Uint8Array(imageBuffer)
-      // Convert to base64 in chunks to avoid stack overflow
-      let binary = ''
-      const chunkSize = 8192
-      for (let i = 0; i < uint8Array.length; i += chunkSize) {
-        const chunk = uint8Array.subarray(i, i + chunkSize)
-        binary += String.fromCharCode(...chunk)
-      }
-      base64Data = btoa(binary)
-      mimeType = imageResponse.headers.get('content-type') || 'image/jpeg'
     }
+
+    // Helper to fetch photos from storage by IDs
+    const fetchPhotosFromIds = async (photoIds: string[]): Promise<Array<{ mimeType: string; base64Data: string }>> => {
+      const { data: photos, error } = await supabaseAdmin
+        .from('photos')
+        .select('id, storage_path, mime_type')
+        .in('id', photoIds)
+        .eq('user_id', user.id)
+
+      if (error || !photos || photos.length !== photoIds.length) {
+        throw new Error('Failed to fetch photos or some photos not found')
+      }
+
+      // Type the photos array
+      type PhotoRow = { id: string; storage_path: string; mime_type: string | null }
+      const typedPhotos = photos as PhotoRow[]
+
+      // Maintain order based on photoIds array
+      const photosById = new Map(typedPhotos.map(p => [p.id, p]))
+      const orderedPhotos = photoIds.map(id => photosById.get(id)!).filter(Boolean)
+
+      const results: Array<{ mimeType: string; base64Data: string }> = []
+      for (const photo of orderedPhotos) {
+        const { data, error: downloadError } = await supabaseAdmin.storage
+          .from('input-photos')
+          .download(photo.storage_path)
+
+        if (downloadError || !data) {
+          throw new Error(`Failed to download photo: ${photo.storage_path}`)
+        }
+
+        const buffer = await data.arrayBuffer()
+        const uint8Array = new Uint8Array(buffer)
+        let binary = ''
+        const chunkSize = 8192
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const chunk = uint8Array.subarray(i, i + chunkSize)
+          binary += String.fromCharCode(...chunk)
+        }
+        results.push({
+          mimeType: photo.mime_type || 'image/jpeg',
+          base64Data: btoa(binary)
+        })
+      }
+      return results
+    }
+
+    // Collect all images for Gemini request
+    const imageDataArray: Array<{ mimeType: string; base64Data: string }> = []
+
+    if (validatedReq.photoIds && validatedReq.photoIds.length > 0) {
+      // Multi-photo mode: fetch photos from storage by ID
+      console.log(`Fetching ${validatedReq.photoIds.length} photos from storage...`)
+      const photos = await fetchPhotosFromIds(validatedReq.photoIds)
+      imageDataArray.push(...photos)
+    } else if (validatedReq.imageData) {
+      // Single image mode (legacy)
+      const image = await imageToBase64(validatedReq.imageData)
+      imageDataArray.push(image)
+    }
+
+    if (imageDataArray.length === 0) {
+      throw new Error('No images provided')
+    }
+
+    console.log(`Processing ${imageDataArray.length} image(s)`)
 
     // Build the prompt - fetch style from database if not using custom
     let stylePrompt = ''
+    let styleUseLegacyOptions = true
+    let styleInputSchema: { fields: Array<{ id: string; label: string; required: boolean; placeholder?: string }> } | null = null
+
     if (validatedReq.customStyle) {
       // Custom category or custom style override - use the provided prompt directly
       stylePrompt = validatedReq.customStyle.trim()
     } else if (validatedReq.style) {
-      // Fetch the style prompt from database
+      // Fetch the style prompt and config from database
       const { data: styleData, error: styleError } = await supabaseAdmin
         .from('styles')
-        .select('prompt')
+        .select('prompt, use_legacy_options, input_schema')
         .eq('id', validatedReq.style)
         .eq('is_active', true)
         .single()
@@ -515,42 +639,54 @@ Deno.serve(async (req) => {
       }
 
       stylePrompt = styleData.prompt
+      styleUseLegacyOptions = styleData.use_legacy_options
+      styleInputSchema = styleData.input_schema
     }
 
-    const cropPrompt = CROP_MAP.get(validatedReq.cropType)?.prompt || ''
+    // Apply template variable substitution if inputValues provided
+    const renderPrompt = (prompt: string, values: Record<string, string>) =>
+      prompt.replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] || '')
 
-    let namePrompt = ''
-    if (validatedReq.name && validatedReq.namePlacement) {
-      const placementPrompt = validatedReq.namePlacement === 'custom' && validatedReq.customPlacement
-        ? validatedReq.customPlacement.trim()
-        : PLACEMENT_MAP.get(validatedReq.namePlacement)?.prompt || ''
-      namePrompt = `Include the name "${validatedReq.name}" ${placementPrompt}.`
+    if (validatedReq.inputValues && Object.keys(validatedReq.inputValues).length > 0) {
+      stylePrompt = renderPrompt(stylePrompt, validatedReq.inputValues)
     }
 
-    // Build prompt parts array for new construction order
+    // Build prompt parts array
     const promptParts: string[] = []
 
     // Style prompt first
     promptParts.push(stylePrompt)
 
-    // Age modification
-    const agePrompt = AGE_PROMPTS[validatedReq.ageModification || 'normal']
-    if (agePrompt) promptParts.push(agePrompt)
+    // Only add legacy options if style uses them
+    if (styleUseLegacyOptions && !styleInputSchema) {
+      // Age modification
+      const agePrompt = AGE_PROMPTS[validatedReq.ageModification || 'normal']
+      if (agePrompt) promptParts.push(agePrompt)
 
-    // Background (always add - remove gets explicit replacement instruction)
-    const bgPrompt = validatedReq.keepBackground ? BACKGROUND_PROMPTS.keep : BACKGROUND_PROMPTS.remove
-    promptParts.push(bgPrompt)
+      // Background (always add - remove gets explicit replacement instruction)
+      const bgPrompt = validatedReq.keepBackground ? BACKGROUND_PROMPTS.keep : BACKGROUND_PROMPTS.remove
+      promptParts.push(bgPrompt)
 
-    // Custom text (user's additional customisation)
-    if (validatedReq.customisationText?.trim()) {
-      promptParts.push(validatedReq.customisationText.trim())
+      // Custom text (user's additional customisation)
+      if (validatedReq.customisationText?.trim()) {
+        promptParts.push(validatedReq.customisationText.trim())
+      }
+
+      // Crop and name
+      const cropPrompt = CROP_MAP.get(validatedReq.cropType || 'portrait')?.prompt || ''
+      promptParts.push(cropPrompt)
+
+      let namePrompt = ''
+      if (validatedReq.name && validatedReq.namePlacement) {
+        const placementPrompt = validatedReq.namePlacement === 'custom' && validatedReq.customPlacement
+          ? validatedReq.customPlacement.trim()
+          : PLACEMENT_MAP.get(validatedReq.namePlacement)?.prompt || ''
+        namePrompt = `Include the name "${validatedReq.name}" ${placementPrompt}.`
+      }
+      if (namePrompt) promptParts.push(namePrompt)
     }
 
-    // Crop and name
-    promptParts.push(cropPrompt)
-    if (namePrompt) promptParts.push(namePrompt)
-
-    // System suffix
+    // System suffix (always add for face recognition)
     promptParts.push('Keep the original face recognizable and maintain their identity. High quality output.')
 
     const prompt = promptParts.join(' ').trim()
@@ -563,6 +699,22 @@ Deno.serve(async (req) => {
       throw new Error('Gemini API key not configured')
     }
 
+    // Build Gemini request with multiple images
+    const geminiParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = []
+
+    // Add all images first
+    for (const img of imageDataArray) {
+      geminiParts.push({
+        inlineData: {
+          mimeType: img.mimeType,
+          data: img.base64Data,
+        },
+      })
+    }
+
+    // Add the prompt text
+    geminiParts.push({ text: prompt })
+
     // Use Gemini 3 Pro Image model for image generation/editing
     const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GEMINI_API_KEY}`,
@@ -571,15 +723,7 @@ Deno.serve(async (req) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{
-            parts: [
-              { text: prompt },
-              {
-                inlineData: {
-                  mimeType: mimeType,
-                  data: base64Data,
-                },
-              },
-            ],
+            parts: geminiParts,
           }],
           generationConfig: {
             imageConfig: {
@@ -677,10 +821,12 @@ Deno.serve(async (req) => {
       .insert({
         user_id: user.id,
         input_photo_id: validatedReq.inputPhotoId || null,
+        photo_ids: validatedReq.photoIds || null,  // NEW: array of photo IDs
+        input_values: validatedReq.inputValues || null,  // NEW: dynamic input values
         output_storage_path: avatarFilename,
         thumbnail_storage_path: thumbnailFilename,
         style: validatedReq.style,
-        crop_type: validatedReq.cropType,
+        crop_type: validatedReq.cropType || 'portrait',
         name_text: validatedReq.name || null,
         name_placement: validatedReq.namePlacement || null,
         custom_style: validatedReq.customStyle || null,

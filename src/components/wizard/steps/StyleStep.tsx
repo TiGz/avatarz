@@ -4,7 +4,7 @@ import { WizardHook } from '@/hooks/useWizard'
 import { useStylesForCategory } from '@/hooks/useStylesForCategory'
 import { usePublicAvatarsByStyle } from '@/hooks/usePublicAvatarsByStyle'
 import { AvatarOptions, StyleOption } from '@/types'
-import { ArrowLeft, ArrowRight, Loader2, Info } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Loader2, Info, Sparkles } from 'lucide-react'
 import { PromptModal } from '../PromptModal'
 
 interface StyleStepProps {
@@ -74,22 +74,42 @@ export function StyleStep({ wizard, options }: StyleStepProps) {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-        {categoryStyles.map((style) => (
-          <button
-            key={style.id}
-            onClick={() => updateState({ style: style.id })}
-            className={`
-              p-4 rounded-xl border-2 transition-all text-center
-              ${state.style === style.id
-                ? 'bg-gradient-to-br from-purple-500/30 to-pink-500/30 border-purple-400 ring-2 ring-purple-400/50 scale-105'
-                : 'bg-white/5 border-white/10 hover:border-white/30 hover:bg-white/10'
-              }
-            `}
-          >
-            <div className="text-2xl mb-2">{style.emoji}</div>
-            <div className="text-white text-sm font-medium">{style.label}</div>
-          </button>
-        ))}
+        {categoryStyles.map((style) => {
+          const isSpecial = !style.useLegacyOptions
+          const isSelected = state.style === style.id
+
+          return (
+            <button
+              key={style.id}
+              onClick={() => updateState({ style: style.id })}
+              className={`
+                relative p-4 rounded-xl border-2 transition-all text-center
+                ${isSelected
+                  ? 'bg-gradient-to-br from-purple-500/30 to-pink-500/30 border-purple-400 ring-2 ring-purple-400/50 scale-105'
+                  : isSpecial
+                    ? 'bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/30 hover:border-purple-400/50 hover:bg-purple-500/20'
+                    : 'bg-white/5 border-white/10 hover:border-white/30 hover:bg-white/10'
+                }
+              `}
+            >
+              {/* Special badge */}
+              {isSpecial && (
+                <div className="absolute -top-2 -right-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg">
+                  <Sparkles className="w-3 h-3" />
+                  Special
+                </div>
+              )}
+              <div className="text-2xl mb-2">{style.emoji}</div>
+              <div className="text-white text-sm font-medium">{style.label}</div>
+              {/* Multi-photo indicator */}
+              {style.maxPhotos > 1 && (
+                <div className="text-[10px] text-purple-300 mt-1">
+                  {style.minPhotos}-{style.maxPhotos} photos
+                </div>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {categoryStyles.length === 0 && (

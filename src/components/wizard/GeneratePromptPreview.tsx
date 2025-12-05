@@ -39,7 +39,7 @@ interface GeneratePromptPreviewProps {
   isOpen: boolean
   onClose: () => void
   state: WizardState
-  stylePrompt: string
+  stylePrompt?: string
 }
 
 function buildPrompt(state: WizardState, stylePrompt: string): string {
@@ -100,7 +100,7 @@ export function GeneratePromptPreview({ isOpen, onClose, state, stylePrompt }: G
     return () => window.removeEventListener('keydown', handleEsc)
   }, [isOpen, onClose])
 
-  const prompt = buildPrompt(state, stylePrompt)
+  const prompt = buildPrompt(state, stylePrompt || '')
 
   const handleCopy = async () => {
     try {

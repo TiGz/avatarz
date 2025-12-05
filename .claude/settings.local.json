@@ -60,7 +60,9 @@
       "Bash(python3:*)",
       "Bash(git -C /Users/adam/dev/personal/avatarz log --oneline -15)",
       "Bash(git -C /Users/adam/dev/personal/avatarz show a3e1f0a --stat)",
-      "Bash(git -C /Users/adam/dev/personal/avatarz show a3e1f0a)"
+      "Bash(git -C /Users/adam/dev/personal/avatarz show a3e1f0a)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)"
     ],
     "deny": [],
     "ask": []

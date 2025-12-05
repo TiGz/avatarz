@@ -1,8 +1,18 @@
 import { useState } from 'react'
 import { WizardState, AvatarOptions } from '@/types'
 
-// Total steps: Capture(0), Category(1), Style(2), Crop(3), Name(4), Generate(5), Download(6)
-const MAX_STEP = 6
+// Step enumeration - photos come AFTER style selection (style defines how many photos needed)
+// Category(0) → Style(1) → Capture(2) → Options(3) → Generate(4) → Download(5)
+export const WIZARD_STEPS = {
+  CATEGORY: 0,
+  STYLE: 1,
+  CAPTURE: 2,
+  OPTIONS: 3,    // Dynamic inputs OR legacy options based on style.inputSchema
+  GENERATE: 4,
+  DOWNLOAD: 5,
+} as const
+
+const MAX_STEP = 5
 
 const createInitialState = (options?: AvatarOptions | null): WizardState => ({
   imageData: null,
@@ -17,11 +27,15 @@ const createInitialState = (options?: AvatarOptions | null): WizardState => ({
   generatedImage: null,
   isPublic: true,
   shareUrl: null,
-  // Generation options (standard mode only)
+  // Generation options (standard mode only - when use_legacy_options=true)
   keepBackground: false,
   ageModification: 'normal',
   customTextEnabled: false,
   customText: '',
+  // Multi-photo support
+  selectedPhotoIds: [],
+  // Dynamic inputs (for styles with input_schema)
+  inputValues: {},
 })
 
 export function useWizard(options?: AvatarOptions | null) {
@@ -34,9 +48,9 @@ export function useWizard(options?: AvatarOptions | null) {
 
   const nextStep = () => {
     setStep((s) => {
-      // If on Category step (1) and custom category, jump directly to Generate (5)
-      if (s === 1 && isCustomCategory) {
-        return 5
+      // If on Category step and custom category, jump to Capture (skip Style)
+      if (s === WIZARD_STEPS.CATEGORY && isCustomCategory) {
+        return WIZARD_STEPS.CAPTURE
       }
       return Math.min(s + 1, MAX_STEP)
     })
@@ -44,9 +58,9 @@ export function useWizard(options?: AvatarOptions | null) {
 
   const prevStep = () => {
     setStep((s) => {
-      // If on Generate step (5) and custom category, go back to Category (1)
-      if (s === 5 && isCustomCategory) {
-        return 1
+      // If on Capture step and custom category, go back to Category (skip Style)
+      if (s === WIZARD_STEPS.CAPTURE && isCustomCategory) {
+        return WIZARD_STEPS.CATEGORY
       }
       return Math.max(s - 1, 0)
     })
@@ -58,23 +72,51 @@ export function useWizard(options?: AvatarOptions | null) {
     setState((prev) => {
       const newState = { ...prev, ...updates }
 
-      // When category changes, reset style (will be set when styles load)
+      // When category changes, reset downstream state
       if (updates.category && updates.category !== prev.category) {
-        if (updates.category === 'custom') {
-          // Custom category - clear style, will use customStyle
-          newState.style = ''
-        } else {
-          // Clear style - StyleStep will set it when styles load
-          newState.style = ''
-        }
+        newState.style = ''
+        newState.inputValues = {}
+        newState.selectedPhotoIds = []
         // Clear custom style when switching away from custom category
         if (prev.category === 'custom' && updates.category !== 'custom') {
           newState.customStyle = ''
         }
       }
 
+      // When style changes, reset inputs and photos
+      if (updates.style && updates.style !== prev.style) {
+        newState.inputValues = {}
+        newState.selectedPhotoIds = []
+      }
+
       return newState
     })
+  }
+
+  // Set a single input value (for dynamic inputs)
+  const setInputValue = (key: string, value: string) => {
+    setState((prev) => ({
+      ...prev,
+      inputValues: { ...prev.inputValues, [key]: value }
+    }))
+  }
+
+  // Toggle photo selection for multi-photo styles
+  const togglePhotoSelection = (photoId: string) => {
+    setState((prev) => {
+      const isSelected = prev.selectedPhotoIds.includes(photoId)
+      return {
+        ...prev,
+        selectedPhotoIds: isSelected
+          ? prev.selectedPhotoIds.filter(id => id !== photoId)
+          : [...prev.selectedPhotoIds, photoId]
+      }
+    })
+  }
+
+  // Set photo selection (replace entire array)
+  const setSelectedPhotoIds = (photoIds: string[]) => {
+    setState((prev) => ({ ...prev, selectedPhotoIds: photoIds }))
   }
 
   const reset = () => {
@@ -87,13 +129,13 @@ export function useWizard(options?: AvatarOptions | null) {
     // Clear the previous generated image and go to Generate step
     setState((prev) => ({ ...prev, generatedImage: null }))
     setShouldAutoGenerate(true)
-    setStep(5) // Generate step
+    setStep(WIZARD_STEPS.GENERATE)
   }
 
   // Go back to Generate step to edit options (no auto-generate)
   const goBackFromDownload = () => {
     setState((prev) => ({ ...prev, generatedImage: null }))
-    setStep(5) // Generate step
+    setStep(WIZARD_STEPS.GENERATE)
   }
 
   // Clear the auto-generate flag after it's been consumed
@@ -108,6 +150,9 @@ export function useWizard(options?: AvatarOptions | null) {
     prevStep,
     goToStep,
     updateState,
+    setInputValue,
+    togglePhotoSelection,
+    setSelectedPhotoIds,
     reset,
     regenerate,
     goBackFromDownload,

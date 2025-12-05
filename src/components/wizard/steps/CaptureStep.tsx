@@ -10,9 +10,12 @@ import { toast } from 'sonner'
 
 interface CaptureStepProps {
   wizard: WizardHook
+  minPhotos?: number  // From selected style (default 1)
+  maxPhotos?: number  // From selected style (default 1)
 }
 
-export function CaptureStep({ wizard }: CaptureStepProps) {
+export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureStepProps) {
+  const isMultiPhoto = maxPhotos > 1
   const [mode, setMode] = useState<'select' | 'webcam' | 'upload' | 'library'>('select')
   const [cameraError, setCameraError] = useState(false)
   const [saveToLibrary, setSaveToLibrary] = useState(true)
@@ -54,12 +57,35 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
   }
 
   const handleSelectFromLibrary = (photo: Photo) => {
-    if (photo.url) {
+    if (!photo.url) return
+
+    if (isMultiPhoto) {
+      // Multi-photo mode: toggle selection
+      const isSelected = wizard.state.selectedPhotoIds.includes(photo.id)
+      if (!isSelected && wizard.state.selectedPhotoIds.length >= maxPhotos) {
+        toast.error(`Maximum ${maxPhotos} photos allowed`)
+        return
+      }
+      wizard.togglePhotoSelection(photo.id)
+    } else {
+      // Single photo mode: select directly
       wizard.updateState({
         imageData: photo.url,
         inputPhotoId: photo.id,
         inputPhotoPath: photo.storage_path,
       } as any)
+    }
+  }
+
+  // Check if enough photos are selected for multi-photo styles
+  const hasEnoughPhotos = isMultiPhoto
+    ? wizard.state.selectedPhotoIds.length >= minPhotos
+    : !!wizard.state.imageData
+
+  // For multi-photo, we need to proceed with selected photo IDs
+  const handleMultiPhotoContinue = () => {
+    if (wizard.state.selectedPhotoIds.length >= minPhotos) {
+      wizard.nextStep()
     }
   }
 
@@ -110,6 +136,7 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
       inputPhotoId: null,
       inputPhotoPath: null,
     } as any)
+    wizard.setSelectedPhotoIds([])  // Clear multi-photo selections
     setPreviewData(null)
     setPendingFile(null)
     setMode('select')
@@ -208,11 +235,22 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
 
   // Library mode
   if (mode === 'library') {
+    const selectedCount = wizard.state.selectedPhotoIds.length
+
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-bold text-white text-center">
-          Select from library
+          {isMultiPhoto ? 'Select photos' : 'Select from library'}
         </h2>
+
+        {isMultiPhoto && (
+          <p className="text-gray-400 text-center">
+            Select {minPhotos === maxPhotos ? minPhotos : `${minPhotos}-${maxPhotos}`} photos
+            <span className="ml-2 text-purple-400 font-medium">
+              ({selectedCount} selected)
+            </span>
+          </p>
+        )}
 
         <div className="max-w-2xl mx-auto">
           <PhotoGrid
@@ -220,10 +258,11 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
             loading={photosLoading}
             onSelect={handleSelectFromLibrary}
             selectable
+            selectedIds={isMultiPhoto ? wizard.state.selectedPhotoIds : undefined}
           />
         </div>
 
-        <div className="flex justify-center">
+        <div className="flex justify-center gap-4">
           <Button
             variant="outline"
             onClick={() => setMode('select')}
@@ -232,6 +271,16 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
+          {isMultiPhoto && (
+            <Button
+              onClick={handleMultiPhotoContinue}
+              disabled={!hasEnoughPhotos}
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+            >
+              Continue ({selectedCount}/{minPhotos})
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
     )
@@ -313,6 +362,54 @@ export function CaptureStep({ wizard }: CaptureStepProps) {
   }
 
   // Selection mode
+  // For multi-photo styles, go directly to library
+  if (isMultiPhoto) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-white text-center">
+          Select your photos
+        </h2>
+        <p className="text-gray-400 text-center">
+          This style requires {minPhotos === maxPhotos ? minPhotos : `${minPhotos}-${maxPhotos}`} photos from your library
+        </p>
+
+        <div className="flex justify-center">
+          <button
+            onClick={() => setMode('library')}
+            className="rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-8 relative"
+          >
+            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+              <FolderOpen className="w-8 h-8 text-white" />
+            </div>
+            <span className="text-white font-medium">Open Library</span>
+            {photos.length > 0 && (
+              <span className="absolute top-2 right-2 bg-purple-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center">
+                {photos.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {photos.length < minPhotos && (
+          <p className="text-amber-400 text-center text-sm">
+            You need at least {minPhotos} photos in your library. Upload photos first!
+          </p>
+        )}
+
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            onClick={() => wizard.prevStep()}
+            className="bg-transparent border-white/20 text-white hover:bg-white/10"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-white text-center">

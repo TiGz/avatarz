@@ -6,12 +6,30 @@ export interface CategoryOption {
   description: string
 }
 
+// Dynamic input field for parameterized styles
+export interface InputField {
+  id: string
+  label: string
+  required: boolean
+  placeholder?: string
+}
+
+// Schema for dynamic inputs
+export interface InputSchema {
+  fields: InputField[]
+}
+
 export interface StyleOption {
   id: string
   categoryId: string
   label: string
   emoji: string
-  prompt: string
+  prompt?: string  // Optional now - not always returned from API
+  // New fields for multi-photo and parameterized styles
+  useLegacyOptions: boolean        // true = show crop/age/background/name options
+  inputSchema: InputSchema | null  // null = no dynamic inputs
+  minPhotos: number                // 1-6
+  maxPhotos: number                // 1-6
 }
 
 export interface NamePlacementOption {
@@ -47,11 +65,15 @@ export interface WizardState {
   generatedImage: string | null
   isPublic: boolean
   shareUrl: string | null
-  // Generation options (standard mode only)
+  // Generation options (standard mode only - when use_legacy_options=true)
   keepBackground: boolean
   ageModification: 'normal' | 'younger' | 'older'
   customTextEnabled: boolean
   customText: string
+  // Multi-photo support
+  selectedPhotoIds: string[]  // Array of photo IDs for multi-photo styles
+  // Dynamic inputs (for styles with input_schema)
+  inputValues: Record<string, string>
 }
 
 // API request/response types

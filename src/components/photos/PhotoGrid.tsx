@@ -11,6 +11,7 @@ interface PhotoGridProps {
   onSelect?: (photo: Photo) => void
   selectable?: boolean
   selectedId?: string | null
+  selectedIds?: string[]  // For multi-photo selection
 }
 
 export function PhotoGrid({
@@ -20,7 +21,21 @@ export function PhotoGrid({
   onSelect,
   selectable = false,
   selectedId = null,
+  selectedIds = [],
 }: PhotoGridProps) {
+  // Check if photo is selected (supports both single and multi-select)
+  const isSelected = (photoId: string) => {
+    if (selectedIds.length > 0) {
+      return selectedIds.includes(photoId)
+    }
+    return selectedId === photoId
+  }
+
+  // Get selection index for multi-select (1, 2, 3...)
+  const getSelectionIndex = (photoId: string) => {
+    const index = selectedIds.indexOf(photoId)
+    return index >= 0 ? index + 1 : null
+  }
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const handleDelete = async (e: React.MouseEvent, photoId: string) => {
@@ -63,7 +78,7 @@ export function PhotoGrid({
           className={`
             relative aspect-square rounded-xl overflow-hidden group cursor-pointer
             border-2 transition-all
-            ${selectedId === photo.id
+            ${isSelected(photo.id)
               ? 'border-purple-500 ring-2 ring-purple-500/50'
               : 'border-transparent hover:border-white/20'
             }
@@ -83,10 +98,14 @@ export function PhotoGrid({
             </div>
           )}
 
-          {/* Selected checkmark */}
-          {selectable && selectedId === photo.id && (
+          {/* Selected indicator */}
+          {selectable && isSelected(photo.id) && (
             <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center">
-              <Check className="h-4 w-4 text-white" />
+              {getSelectionIndex(photo.id) ? (
+                <span className="text-xs font-bold text-white">{getSelectionIndex(photo.id)}</span>
+              ) : (
+                <Check className="h-4 w-4 text-white" />
+              )}
             </div>
           )}
 
