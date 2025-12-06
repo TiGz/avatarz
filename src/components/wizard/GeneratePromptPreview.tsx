@@ -130,8 +130,13 @@ function buildPrompt(
     }
   }
 
-  // System suffix (always add)
-  parts.push('Keep the original face recognizable and maintain their identity. High quality output.')
+  // System suffix (always add for face recognition)
+  const photoCount = state.selectedPhotos?.length || 1
+  if (photoCount > 1) {
+    parts.push(`Keep all ${photoCount} faces recognizable and maintain their identities. High quality output.`)
+  } else {
+    parts.push('Keep the original face recognizable and maintain their identity. High quality output.')
+  }
 
   return parts.join(' ').trim()
 }
