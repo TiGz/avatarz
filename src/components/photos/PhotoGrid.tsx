@@ -85,9 +85,10 @@ export function PhotoGrid({
           `}
           onClick={() => onSelect?.(photo)}
         >
-          {photo.url ? (
+          {/* Use thumbnail if available, fall back to full-resolution URL */}
+          {photo.thumbnailUrl || photo.url ? (
             <img
-              src={photo.url}
+              src={photo.thumbnailUrl || photo.url}
               alt={photo.filename}
               className="w-full h-full object-cover"
               loading="lazy"

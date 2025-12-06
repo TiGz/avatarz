@@ -66,7 +66,7 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
         toast.error(`Maximum ${maxPhotos} photos allowed`)
         return
       }
-      wizard.togglePhotoSelection(photo.id, photo.url)
+      wizard.togglePhotoSelection(photo.id, photo.url, photo.thumbnailUrl)
     } else {
       // Single photo mode: select directly
       wizard.updateState({
@@ -115,7 +115,7 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
 
       toast.dismiss()
       if (photo && photo.url) {
-        wizard.addSelectedPhoto({ id: photo.id, url: photo.url })
+        wizard.addSelectedPhoto({ id: photo.id, url: photo.url, thumbnailUrl: photo.thumbnailUrl })
         toast.success('Photo added!')
       } else {
         toast.error('Failed to save photo')
@@ -421,7 +421,7 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
               <div key={photo.id} className="relative">
                 <div className="w-20 h-20 rounded-xl overflow-hidden ring-2 ring-purple-500/50">
                   <img
-                    src={photo.url}
+                    src={photo.thumbnailUrl || photo.url}
                     alt={`Selected ${idx + 1}`}
                     className="w-full h-full object-cover"
                   />

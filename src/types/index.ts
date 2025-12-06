@@ -82,7 +82,7 @@ export interface WizardState {
   customText: string
   // Multi-photo support
   selectedPhotoIds: string[]  // Array of photo IDs for multi-photo styles
-  selectedPhotos: Array<{ id: string; url: string }>  // Photo data for thumbnails
+  selectedPhotos: Array<{ id: string; url: string; thumbnailUrl?: string }>  // Photo data with optional thumbnail
   // Dynamic inputs (for styles with input_schema)
   inputValues: Record<string, string>
 }
@@ -123,11 +123,13 @@ export interface Photo {
   id: string
   user_id: string
   storage_path: string
+  thumbnail_path: string | null
   filename: string
   mime_type: string
   file_size: number
   created_at: string
-  url?: string // Signed URL for display
+  url?: string // Signed URL for full-resolution display
+  thumbnailUrl?: string // Public URL for thumbnail display
 }
 
 // Generation types
