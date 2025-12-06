@@ -1,16 +1,21 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { motion } from 'framer-motion'
-import { Loader2, Sparkles, Mail } from 'lucide-react'
+import { Loader2, Sparkles, Mail, Ticket } from 'lucide-react'
 import { toast } from 'sonner'
 
 type LoginStatus = 'idle' | 'checking' | 'sending' | 'code_sent' | 'verifying' | 'denied' | 'error'
+type ViewMode = 'login' | 'invite'
 
 export function LoginForm() {
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
+  const [viewMode, setViewMode] = useState<ViewMode>('login')
   const [status, setStatus] = useState<LoginStatus>('idle')
 
   const handleRequestCode = async (e: React.FormEvent) => {
@@ -87,6 +92,13 @@ export function LoginForm() {
     }
   }
 
+  const handleRedeemInvite = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!inviteCode.trim()) return
+    // Navigate to the invite redemption page with the code
+    navigate(`/invite/${inviteCode.trim().toUpperCase()}`)
+  }
+
   if (status === 'denied') {
     return (
       <motion.div
@@ -97,13 +109,78 @@ export function LoginForm() {
         <div className="text-6xl mb-4">😔</div>
         <h2 className="text-2xl font-bold mb-4 text-white">Sorry!</h2>
         <p className="text-gray-300 mb-6">You're not on the guest list.</p>
-        <Button
-          onClick={() => setStatus('idle')}
-          variant="outline"
-          className="border-white/20 hover:bg-white/10"
-        >
-          Try another email
-        </Button>
+        <div className="flex flex-col gap-3">
+          <Button
+            onClick={() => setStatus('idle')}
+            variant="outline"
+            className="border-white/20 hover:bg-white/10"
+          >
+            Try another email
+          </Button>
+          <button
+            type="button"
+            onClick={() => {
+              setStatus('idle')
+              setViewMode('invite')
+            }}
+            className="text-purple-400 text-sm hover:text-purple-300"
+          >
+            Have an invite code?
+          </button>
+        </div>
+      </motion.div>
+    )
+  }
+
+  // Invite code entry form
+  if (viewMode === 'invite') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-sm"
+      >
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mb-4">
+            <Ticket className="w-8 h-8 text-white" />
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">Redeem Invite Code</h2>
+          <p className="text-gray-400 text-sm">
+            Enter the invite code you received
+          </p>
+        </div>
+
+        <form onSubmit={handleRedeemInvite} className="space-y-4">
+          <Input
+            type="text"
+            placeholder="Enter invite code"
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+            className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 h-12 text-center text-lg tracking-widest uppercase"
+            autoFocus
+          />
+          <Button
+            type="submit"
+            disabled={!inviteCode.trim()}
+            className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            Redeem Code
+          </Button>
+        </form>
+
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              setInviteCode('')
+              setViewMode('login')
+            }}
+            className="text-gray-400 text-sm hover:text-white"
+          >
+            Back to login
+          </button>
+        </div>
       </motion.div>
     )
   }
@@ -224,6 +301,15 @@ export function LoginForm() {
           </button>
         </p>
       )}
+      <div className="text-center pt-2">
+        <button
+          type="button"
+          onClick={() => setViewMode('invite')}
+          className="text-purple-400 text-sm hover:text-purple-300"
+        >
+          Have an invite code?
+        </button>
+      </div>
     </motion.form>
   )
 }
