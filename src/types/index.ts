@@ -19,9 +19,11 @@ export interface InputField {
   label: string
   required: boolean
   placeholder?: string
-  type?: 'text' | 'radio' | 'select'  // Default: 'text'
+  type?: 'text' | 'radio' | 'select' | 'invite_code'  // Default: 'text', 'invite_code' is special
   defaultValue?: string
+  description?: string  // Help text for the field
   options?: InputFieldOption[]  // For radio/select types
+  prompt?: string  // For invite_code type: the prompt text with {{invite_code}} placeholder
 }
 
 // Schema for dynamic inputs

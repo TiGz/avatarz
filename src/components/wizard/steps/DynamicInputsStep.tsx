@@ -2,8 +2,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { WizardHook } from '@/hooks/useWizard'
+import { useInviteQuota } from '@/hooks/useInviteQuota'
 import { InputSchema, InputField } from '@/types'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Gift, Loader2 } from 'lucide-react'
 
 interface DynamicInputsStepProps {
   wizard: WizardHook
@@ -52,6 +53,72 @@ function RadioField({ field, value, onChange }: {
   )
 }
 
+function InviteCodeField({ field, value, onChange }: {
+  field: InputField
+  value: string
+  onChange: (value: string) => void
+}) {
+  const { quota, loading } = useInviteQuota()
+
+  // Don't show if user can't create invites
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-gray-400">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Checking invite availability...</span>
+      </div>
+    )
+  }
+
+  if (!quota?.can_create || (quota.remaining !== undefined && quota.remaining <= 0)) {
+    return null
+  }
+
+  const isChecked = value === 'true'
+
+  return (
+    <div className="space-y-2">
+      <label
+        className={`flex items-center gap-3 p-4 rounded-lg cursor-pointer transition-all ${
+          isChecked
+            ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/50'
+            : 'bg-white/5 border border-white/10 hover:bg-white/10'
+        }`}
+      >
+        <input
+          type="checkbox"
+          checked={isChecked}
+          onChange={(e) => onChange(e.target.checked ? 'true' : '')}
+          className="sr-only"
+        />
+        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+          isChecked
+            ? 'border-purple-500 bg-purple-500'
+            : 'border-white/40'
+        }`}>
+          {isChecked && (
+            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Gift className="h-5 w-5 text-purple-400" />
+          <span className="text-white font-medium">{field.label}</span>
+        </div>
+      </label>
+      {field.description && (
+        <p className="text-sm text-gray-400 ml-1">{field.description}</p>
+      )}
+      {isChecked && quota.remaining !== undefined && (
+        <p className="text-sm text-purple-400 ml-1">
+          You have {quota.remaining} invite{quota.remaining !== 1 ? 's' : ''} remaining today
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function DynamicInputsStep({ wizard, schema }: DynamicInputsStepProps) {
   const { state, setInputValue, nextStep, prevStep } = wizard
 
@@ -72,10 +139,13 @@ export function DynamicInputsStep({ wizard, schema }: DynamicInputsStepProps) {
       <div className="space-y-6 max-w-md mx-auto">
         {schema.fields.map(field => (
           <div key={field.id}>
-            <Label className="text-white mb-2 block">
-              {field.label}
-              {field.required && <span className="text-red-400 ml-1">*</span>}
-            </Label>
+            {/* invite_code type handles its own label */}
+            {field.type !== 'invite_code' && (
+              <Label className="text-white mb-2 block">
+                {field.label}
+                {field.required && <span className="text-red-400 ml-1">*</span>}
+              </Label>
+            )}
 
             {/* Text input (default) */}
             {(!field.type || field.type === 'text') && (
@@ -90,6 +160,15 @@ export function DynamicInputsStep({ wizard, schema }: DynamicInputsStepProps) {
             {/* Radio buttons */}
             {field.type === 'radio' && (
               <RadioField
+                field={field}
+                value={state.inputValues[field.id] || ''}
+                onChange={(value) => setInputValue(field.id, value)}
+              />
+            )}
+
+            {/* Invite code checkbox */}
+            {field.type === 'invite_code' && (
+              <InviteCodeField
                 field={field}
                 value={state.inputValues[field.id] || ''}
                 onChange={(value) => setInputValue(field.id, value)}

@@ -32,9 +32,11 @@ interface InputField {
   label: string
   required: boolean
   placeholder?: string
-  type?: 'text' | 'radio' | 'select'
+  type?: 'text' | 'radio' | 'select' | 'invite_code'
   defaultValue?: string
+  description?: string
   options?: InputFieldOption[]
+  prompt?: string  // For invite_code type: the prompt text with {{invite_code}} placeholder
 }
 
 interface InputSchema {
@@ -217,6 +219,23 @@ interface UserQuota {
   used: number
   remaining: number
   is_admin: boolean
+}
+
+interface InviteQuota {
+  can_create: boolean
+  tier: string
+  limit?: number
+  used?: number
+  remaining?: number
+  reason?: string
+}
+
+// Generate 8-char URL-safe code (uppercase letters + numbers, no ambiguous chars)
+function generateInviteCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // No I,O,0,1
+  const array = new Uint8Array(8)
+  crypto.getRandomValues(array)
+  return Array.from(array).map(x => chars[x % chars.length]).join('')
 }
 
 // ============================================================================
@@ -697,6 +716,93 @@ Deno.serve(async (req) => {
       return result
     }
 
+    // Handle invite code generation if requested
+    // Find any invite_code field in the schema to get the prompt template
+    const inviteCodeField = styleInputSchema?.fields?.find(f => f.type === 'invite_code')
+    let generatedInviteCode: string | null = null
+    let inviteCodeError: string | null = null
+
+    if (validatedReq.inputValues?.include_invite_code === 'true' && inviteCodeField?.prompt) {
+      console.log('User requested invite code in image')
+
+      // Check invite quota
+      const { data: inviteQuota, error: inviteQuotaError } = await supabase.rpc('get_invite_quota')
+
+      if (inviteQuotaError) {
+        console.error('Invite quota check failed:', inviteQuotaError)
+        inviteCodeError = 'Failed to check invite quota'
+      } else {
+        const quota = inviteQuota as InviteQuota
+
+        if (!quota.can_create) {
+          console.log('User cannot create invites:', quota.reason)
+          inviteCodeError = quota.reason || 'Cannot create invites'
+        } else if (quota.remaining !== undefined && quota.remaining <= 0) {
+          console.log('User has no invites remaining')
+          inviteCodeError = 'No invites remaining today'
+        } else {
+          // Generate unique code (with retry)
+          let code = ''
+          let attempts = 0
+
+          while (attempts < 5) {
+            code = generateInviteCode()
+            const { data: existing } = await supabaseAdmin
+              .from('invite_codes')
+              .select('id')
+              .eq('code', code)
+              .single()
+
+            if (!existing) break
+            attempts++
+          }
+
+          if (attempts >= 5) {
+            inviteCodeError = 'Failed to generate unique code'
+          } else {
+            // Create invite with 7-day expiry
+            const expiresAt = new Date()
+            expiresAt.setDate(expiresAt.getDate() + 7)
+
+            const { data: invite, error: insertError } = await supabaseAdmin
+              .from('invite_codes')
+              .insert({
+                code: code,
+                created_by: user.id,
+                expires_at: expiresAt.toISOString()
+              })
+              .select()
+              .single()
+
+            if (insertError) {
+              console.error('Failed to create invite:', insertError)
+              inviteCodeError = 'Failed to create invite code'
+            } else {
+              generatedInviteCode = invite.code
+              console.log('Generated invite code:', generatedInviteCode)
+
+              // Build the invite code text from the field's prompt template
+              // Replace {{invite_code}} with the actual code
+              const invitePromptText = inviteCodeField.prompt.replace(/\{\{invite_code\}\}/g, generatedInviteCode)
+              validatedReq.inputValues.invite_code_text = ` ${invitePromptText}`
+            }
+          }
+        }
+      }
+
+      // If invite code generation failed, set empty text (graceful degradation)
+      if (inviteCodeError && validatedReq.inputValues) {
+        validatedReq.inputValues.invite_code_text = ''
+      }
+    } else {
+      // No invite code requested - set empty placeholder
+      if (validatedReq.inputValues) {
+        validatedReq.inputValues.invite_code_text = ''
+      } else {
+        validatedReq.inputValues = { invite_code_text: '' }
+      }
+    }
+
     if (validatedReq.inputValues && Object.keys(validatedReq.inputValues).length > 0) {
       stylePrompt = renderPrompt(stylePrompt, validatedReq.inputValues, styleInputSchema)
     }
@@ -952,6 +1058,12 @@ Deno.serve(async (req) => {
       thumbnailUrl = `${supabaseUrl}/storage/v1/object/public/avatar-thumbnails/${thumbnailFilename}`
     }
 
+    // Build invite code URL if generated
+    let inviteUrl: string | undefined
+    if (generatedInviteCode) {
+      inviteUrl = `https://avatarz.tigz.me/#/invite/${generatedInviteCode}`
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -968,6 +1080,9 @@ Deno.serve(async (req) => {
           remaining: quota.is_admin ? -1 : Math.max(0, quota.remaining - 1),
           is_admin: quota.is_admin,
         },
+        // Include generated invite code info if created
+        inviteCode: generatedInviteCode || undefined,
+        inviteUrl: inviteUrl,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
