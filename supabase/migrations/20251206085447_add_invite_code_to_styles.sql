@@ -1,6 +1,8 @@
 -- Add invite code support to snowglobe-couple style
 -- This adds a special 'invite_code' field type that allows users to optionally
--- include their invite code in generated images
+-- include their invite code in generated images.
+-- The 'prompt' property on invite_code fields defines the style-specific text
+-- to add to the prompt, with {{invite_code}} as a placeholder for the generated code.
 
 UPDATE public.styles
 SET
@@ -43,7 +45,8 @@ SET
         "type": "invite_code",
         "required": false,
         "defaultValue": "",
-        "description": "Include your personal invite code in the image - great for sharing!"
+        "description": "Include your personal invite code in the image - great for sharing!",
+        "prompt": "At the bottom of the image leave some space for the words in the same font as the plinth: \"Go to avatarz.tigz.me - Invite code: {{invite_code}}\""
       }
     ]
   }'::jsonb

@@ -36,6 +36,7 @@ interface InputField {
   defaultValue?: string
   description?: string
   options?: InputFieldOption[]
+  prompt?: string  // For invite_code type: the prompt text with {{invite_code}} placeholder
 }
 
 interface InputSchema {
@@ -716,10 +717,12 @@ Deno.serve(async (req) => {
     }
 
     // Handle invite code generation if requested
+    // Find any invite_code field in the schema to get the prompt template
+    const inviteCodeField = styleInputSchema?.fields?.find(f => f.type === 'invite_code')
     let generatedInviteCode: string | null = null
     let inviteCodeError: string | null = null
 
-    if (validatedReq.inputValues?.include_invite_code === 'true') {
+    if (validatedReq.inputValues?.include_invite_code === 'true' && inviteCodeField?.prompt) {
       console.log('User requested invite code in image')
 
       // Check invite quota
@@ -778,8 +781,10 @@ Deno.serve(async (req) => {
               generatedInviteCode = invite.code
               console.log('Generated invite code:', generatedInviteCode)
 
-              // Set the invite_code_text placeholder value
-              validatedReq.inputValues.invite_code_text = ` At the bottom of the image leave some space for the words in the same font as plinth: "Go to avatarz.tigz.me - Invite code: ${generatedInviteCode}"`
+              // Build the invite code text from the field's prompt template
+              // Replace {{invite_code}} with the actual code
+              const invitePromptText = inviteCodeField.prompt.replace(/\{\{invite_code\}\}/g, generatedInviteCode)
+              validatedReq.inputValues.invite_code_text = ` ${invitePromptText}`
             }
           }
         }
