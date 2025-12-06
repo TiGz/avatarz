@@ -43,7 +43,7 @@ export function HomePage() {
       <Header>
         <InstallButton />
         <QuotaDisplay compact />
-        <Link to="/photos" className="hidden sm:block">
+        <Link to="/photos">
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
             <FolderOpen className="h-5 w-5" />
           </Button>
