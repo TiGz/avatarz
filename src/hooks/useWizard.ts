@@ -105,7 +105,7 @@ export function useWizard(options?: AvatarOptions | null) {
   }
 
   // Toggle photo selection for multi-photo styles (with photo data for thumbnails)
-  const togglePhotoSelection = (photoId: string, photoUrl?: string) => {
+  const togglePhotoSelection = (photoId: string, photoUrl?: string, thumbnailUrl?: string) => {
     setState((prev) => {
       const isSelected = prev.selectedPhotoIds.includes(photoId)
       if (isSelected) {
@@ -121,7 +121,7 @@ export function useWizard(options?: AvatarOptions | null) {
           ...prev,
           selectedPhotoIds: [...prev.selectedPhotoIds, photoId],
           selectedPhotos: photoUrl
-            ? [...prev.selectedPhotos, { id: photoId, url: photoUrl }]
+            ? [...prev.selectedPhotos, { id: photoId, url: photoUrl, thumbnailUrl }]
             : prev.selectedPhotos
         }
       }
@@ -138,7 +138,7 @@ export function useWizard(options?: AvatarOptions | null) {
   }
 
   // Add a photo with data (for webcam/upload in multi-photo mode)
-  const addSelectedPhoto = (photo: { id: string; url: string }) => {
+  const addSelectedPhoto = (photo: { id: string; url: string; thumbnailUrl?: string }) => {
     setState((prev) => ({
       ...prev,
       selectedPhotoIds: [...prev.selectedPhotoIds, photo.id],
