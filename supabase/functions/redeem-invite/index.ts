@@ -126,10 +126,11 @@ Deno.serve(async (req) => {
         })
       }
 
-      // Add email to allowlist
+      // Add email to allowlist with the tier granted by the invite code
+      const tierGranted = claimResult.tier_granted || 'standard'
       const { error: allowlistError } = await supabaseAdmin
         .from('allowlist')
-        .upsert({ email: normalizedEmail }, { onConflict: 'email' })
+        .upsert({ email: normalizedEmail, tier_id: tierGranted }, { onConflict: 'email' })
 
       if (allowlistError) {
         console.error('Allowlist error:', allowlistError)

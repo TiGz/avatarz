@@ -70,6 +70,9 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Determine tier to grant: admins create premium invites, others create standard
+    const tierGranted = quotaData.tier === 'admin' ? 'premium' : 'standard'
+
     // Generate unique code (with retry)
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
     let code: string = ''
@@ -103,7 +106,8 @@ Deno.serve(async (req) => {
       .insert({
         code: code,
         created_by: user.id,
-        expires_at: expiresAt.toISOString()
+        expires_at: expiresAt.toISOString(),
+        tier_granted: tierGranted
       })
       .select()
       .single()
