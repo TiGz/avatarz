@@ -574,6 +574,17 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
         <span className="text-sm">Save new photos to my library</span>
       </label>
 
+      <div className="flex justify-center pt-4">
+        <Button
+          variant="outline"
+          onClick={() => wizard.prevStep()}
+          className="bg-transparent border-white/20 text-white hover:bg-white/10"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
+      </div>
+
       <input
         ref={fileInputRef}
         type="file"

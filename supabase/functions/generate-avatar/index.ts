@@ -740,7 +740,7 @@ Deno.serve(async (req) => {
     }
 
     // System suffix (always add for face recognition)
-    promptParts.push('Keep the original face recognizable and maintain their identity. High quality output.')
+    promptParts.push('CRITICAL: Preserve the exact facial identity of the person in the photo - their bone structure, eye shape and color, nose shape, mouth, jawline, and expression must remain clearly recognizable. This is a portrait of a specific real individual, not a generic face. Maintain their unique distinguishing features and skin characteristics. The final result must look like the same person. High quality output.')
 
     const prompt = promptParts.join(' ').trim()
 
