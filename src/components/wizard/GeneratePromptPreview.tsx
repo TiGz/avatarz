@@ -85,7 +85,18 @@ function buildPrompt(
   // Apply template substitution to style prompt
   let processedStylePrompt = stylePrompt
   if (state.inputValues && Object.keys(state.inputValues).length > 0) {
-    processedStylePrompt = renderPromptTemplate(stylePrompt, state.inputValues, inputSchema)
+    // Create a copy of inputValues with invite_code_text placeholder if requested
+    const valuesForRender = { ...state.inputValues }
+    if (valuesForRender.include_invite_code === 'true') {
+      // Find the invite_code field to get its prompt template
+      const inviteField = inputSchema?.fields?.find(f => f.type === 'invite_code')
+      if (inviteField?.prompt) {
+        valuesForRender.invite_code_text = ` ${inviteField.prompt.replace(/\{\{invite_code\}\}/g, '[CODE]')}`
+      } else {
+        valuesForRender.invite_code_text = ' [Invite code will be added here]'
+      }
+    }
+    processedStylePrompt = renderPromptTemplate(stylePrompt, valuesForRender, inputSchema)
   }
 
   // Style prompt first
