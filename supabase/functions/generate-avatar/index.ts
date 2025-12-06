@@ -737,7 +737,8 @@ Deno.serve(async (req) => {
         if (!quota.can_create) {
           console.log('User cannot create invites:', quota.reason)
           inviteCodeError = quota.reason || 'Cannot create invites'
-        } else if (quota.remaining !== undefined && quota.remaining <= 0) {
+        } else if (quota.remaining === 0) {
+          // remaining === -1 means unlimited, so only block when exactly 0
           console.log('User has no invites remaining')
           inviteCodeError = 'No invites remaining today'
         } else {
