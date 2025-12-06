@@ -154,11 +154,11 @@ export function StyleStep({ wizard, options }: StyleStepProps) {
               <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
             </div>
           ) : examples.length > 0 ? (
-            <div className="flex gap-3 justify-center">
+            <div className="flex gap-2 sm:gap-3 justify-center flex-wrap">
               {examples.map((example) => (
                 <div
                   key={example.id}
-                  className="w-32 h-32 rounded-lg overflow-hidden bg-black/20"
+                  className="w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-lg overflow-hidden bg-black/20 flex-shrink-0"
                 >
                   <img
                     src={example.thumbnailUrl}

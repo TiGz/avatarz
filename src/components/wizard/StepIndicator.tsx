@@ -8,7 +8,7 @@ interface StepIndicatorProps {
 
 export function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
   return (
-    <div className="flex items-center justify-center gap-2">
+    <div className="flex items-center justify-center gap-1 sm:gap-2 px-2">
       {steps.map((step, index) => {
         const isCompleted = index < currentStep
         const isCurrent = index === currentStep
@@ -17,8 +17,8 @@ export function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
           <div key={step} className="flex items-center">
             <motion.div
               className={`
-                w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium
-                transition-colors duration-200
+                w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-medium
+                transition-colors duration-200 flex-shrink-0
                 ${isCompleted
                   ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
                   : isCurrent
@@ -30,7 +30,7 @@ export function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
               transition={{ duration: 0.3 }}
             >
               {isCompleted ? (
-                <Check className="w-4 h-4" />
+                <Check className="w-3 h-3 sm:w-4 sm:h-4" />
               ) : (
                 index + 1
               )}
@@ -38,7 +38,7 @@ export function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
             {index < steps.length - 1 && (
               <div
                 className={`
-                  w-8 h-0.5 mx-1
+                  w-4 sm:w-8 h-0.5 mx-0.5 sm:mx-1 flex-shrink-0
                   ${isCompleted ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-white/10'}
                 `}
               />
