@@ -119,7 +119,29 @@ export function InviteManager() {
         )}
       </div>
 
-      {/* Premium user info note - only shown for premium tier (not admin) */}
+      {/* Admin user info note - invites create Premium users */}
+      {quota?.tier === 'admin' && (
+        <div className="relative overflow-hidden rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-950/40 via-emerald-900/20 to-transparent p-4">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <div className="relative flex gap-3">
+            <div className="flex-shrink-0 mt-0.5">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-emerald-400" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-emerald-200/90">
+                Admin Invites
+              </p>
+              <p className="text-xs text-emerald-200/60 leading-relaxed">
+                Friends you invite will join with a <span className="text-emerald-300/70 font-medium">Premium account</span> — 50 generations per day and invite privileges.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Premium user info note - invites create Standard users */}
       {quota?.tier === 'premium' && (
         <div className="relative overflow-hidden rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-950/40 via-amber-900/20 to-transparent p-4">
           {/* Subtle decorative element */}
