@@ -13,7 +13,6 @@ import { InstallButton } from '@/components/pwa/InstallButton'
 import { PublicAvatarShowcase } from '@/components/ui/PublicAvatarShowcase'
 import { InviteManager } from '@/components/invite/InviteManager'
 import { InviteQuotaIndicator } from '@/components/invite/InviteQuotaIndicator'
-import { PhotoStrip } from '@/components/photos/PhotoStrip'
 
 export function HomePage() {
   const { user, signOut } = useAuth()
@@ -107,15 +106,6 @@ export function HomePage() {
 
       {/* Main Content */}
       <main className="flex flex-col items-center px-4 py-8">
-        {/* User's photos strip at top */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-lg mb-6"
-        >
-          <PhotoStrip maxVisible={5} />
-        </motion.div>
-
         {/* Community avatars */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
