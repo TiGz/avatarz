@@ -70,7 +70,8 @@ function InviteCodeField({ field, value, onChange }: {
     )
   }
 
-  if (!quota?.can_create || (quota.remaining !== undefined && quota.remaining <= 0)) {
+  // remaining === -1 means unlimited, so only hide if remaining is exactly 0
+  if (!quota?.can_create || quota.remaining === 0) {
     return null
   }
 

@@ -63,7 +63,9 @@
       "Bash(git -C /Users/adam/dev/personal/avatarz show a3e1f0a)",
       "Bash(git checkout:*)",
       "Bash(git pull:*)",
-      "Bash(supabase functions:*)"
+      "Bash(supabase functions:*)",
+      "Bash(git -C /Users/adam/dev/personal/avatarz show ac93704 --stat)",
+      "Bash(git -C /Users/adam/dev/personal/avatarz show ac93704)"
     ],
     "deny": [],
     "ask": []
