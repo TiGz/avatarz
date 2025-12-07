@@ -75,6 +75,7 @@ export interface WizardState {
   namePlacement: string
   customPlacement: string
   generatedImage: string | null
+  generationId: string | null
   isPublic: boolean
   shareUrl: string | null
   // Generation options (standard mode only - when use_legacy_options=true)
@@ -89,6 +90,8 @@ export interface WizardState {
   inputValues: Record<string, string>
   // Custom mode options
   preserveFacialIdentity: boolean  // Whether to add face-preservation system prompt
+  aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
+  imageSize: '1K' | '2K'
 }
 
 // API request/response types

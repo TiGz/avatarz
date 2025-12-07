@@ -105,6 +105,9 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
             customisationText: !isCustomCategory && state.customTextEnabled ? state.customText : undefined,
             // Face preservation flag (for custom mode)
             preserveFacialIdentity: isCustomCategory ? state.preserveFacialIdentity : undefined,
+            // Aspect ratio and resolution (for custom mode)
+            aspectRatio: isCustomCategory ? state.aspectRatio : undefined,
+            imageSize: isCustomCategory ? state.imageSize : undefined,
           }),
         }
       )
@@ -137,7 +140,11 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
       }
 
       setProgress(100)
-      updateState({ generatedImage: result.image, shareUrl: result.shareUrl || null })
+      updateState({
+        generatedImage: result.image,
+        generationId: result.generationId || null,
+        shareUrl: result.shareUrl || null
+      })
       nextStep()
     } catch (error) {
       console.error('Generation error:', error)
@@ -332,6 +339,35 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
               <p className="text-gray-500">
                 {state.customStyle.length}/3000
               </p>
+            </div>
+          </div>
+
+          {/* Aspect Ratio and Resolution dropdowns */}
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="block text-xs text-gray-500 mb-1.5">Aspect Ratio</label>
+              <select
+                value={state.aspectRatio}
+                onChange={(e) => updateState({ aspectRatio: e.target.value as typeof state.aspectRatio })}
+                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-purple-400 focus:outline-none cursor-pointer"
+              >
+                <option value="1:1">1:1 (Square)</option>
+                <option value="16:9">16:9 (Landscape)</option>
+                <option value="9:16">9:16 (Portrait)</option>
+                <option value="4:3">4:3 (Standard)</option>
+                <option value="3:4">3:4 (Portrait)</option>
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs text-gray-500 mb-1.5">Resolution</label>
+              <select
+                value={state.imageSize}
+                onChange={(e) => updateState({ imageSize: e.target.value as typeof state.imageSize })}
+                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-purple-400 focus:outline-none cursor-pointer"
+              >
+                <option value="1K">1K</option>
+                <option value="2K">2K</option>
+              </select>
             </div>
           </div>
 

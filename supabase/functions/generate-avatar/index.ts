@@ -195,6 +195,8 @@ interface GenerateAvatarRequest {
 
   // Custom mode options
   preserveFacialIdentity?: boolean  // Whether to add face-preservation system prompt
+  aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
+  imageSize?: '1K' | '2K'
 }
 
 interface GeminiResponse {
@@ -338,7 +340,7 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
     if (typeof req.name !== 'string' || req.name.length > 30) {
       throw new Error('Name must be under 30 characters')
     }
-    if (!/^[a-zA-Z0-9\s]+$/.test(req.name)) {
+    if (!/^[a-zA-Z0-9\s\-]+$/.test(req.name)) {
       throw new Error('Name contains invalid characters')
     }
   }
@@ -391,6 +393,18 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
     if (!/^[a-zA-Z0-9\s\-.,!?'"():;]+$/.test(req.customisationText)) {
       throw new Error('Customisation text contains invalid characters')
     }
+  }
+
+  // Validate aspect ratio (for custom mode)
+  const validAspectRatios = ['1:1', '16:9', '9:16', '4:3', '3:4']
+  if (req.aspectRatio && !validAspectRatios.includes(req.aspectRatio)) {
+    throw new Error(`Invalid aspect ratio. Must be one of: ${validAspectRatios.join(', ')}`)
+  }
+
+  // Validate image size (for custom mode)
+  const validImageSizes = ['1K', '2K']
+  if (req.imageSize && !validImageSizes.includes(req.imageSize)) {
+    throw new Error(`Invalid image size. Must be one of: ${validImageSizes.join(', ')}`)
   }
 
   return req
@@ -912,8 +926,8 @@ Deno.serve(async (req) => {
             }],
             generationConfig: {
               imageConfig: {
-                aspectRatio: '1:1',
-                imageSize: '1K',
+                aspectRatio: validatedReq.aspectRatio || '1:1',
+                imageSize: validatedReq.imageSize || '1K',
               },
             },
           }),

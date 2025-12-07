@@ -50,6 +50,14 @@ interface UserQuota {
 // Valid aspect ratios supported by Gemini
 const VALID_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4']
 
+// Social media banner presets with fixed dimensions
+const SOCIAL_BANNERS: Record<string, { width: number; height: number; geminiRatio: string }> = {
+  'linkedin': { width: 1584, height: 396, geminiRatio: '4:3' },   // 4:1 - use 4:3 and crop
+  'facebook': { width: 851, height: 315, geminiRatio: '16:9' },   // ~2.7:1 - use 16:9 and crop
+  'twitter': { width: 1500, height: 500, geminiRatio: '16:9' },   // 3:1 - use 16:9 and crop
+  'youtube': { width: 2560, height: 1440, geminiRatio: '16:9' },  // 16:9 - exact match
+}
+
 // ============================================================================
 // COST CALCULATION
 // ============================================================================
@@ -80,20 +88,21 @@ function validateRequest(payload: unknown): ExtendImageRequest {
     throw new Error('Invalid generationId format')
   }
 
-  // Validate aspectRatio
+  // Validate aspectRatio (can be standard ratio OR social banner ID)
   if (!req.aspectRatio || typeof req.aspectRatio !== 'string') {
     throw new Error('aspectRatio is required')
   }
-  if (!VALID_ASPECT_RATIOS.includes(req.aspectRatio)) {
-    throw new Error(`Invalid aspectRatio. Must be one of: ${VALID_ASPECT_RATIOS.join(', ')}`)
+  const isSocialBanner = req.aspectRatio in SOCIAL_BANNERS
+  if (!VALID_ASPECT_RATIOS.includes(req.aspectRatio) && !isSocialBanner) {
+    throw new Error(`Invalid aspectRatio. Must be one of: ${VALID_ASPECT_RATIOS.join(', ')}, ${Object.keys(SOCIAL_BANNERS).join(', ')}`)
   }
 
   // Validate prompt
   if (!req.prompt || typeof req.prompt !== 'string') {
     throw new Error('prompt is required')
   }
-  if (req.prompt.length > 1000) {
-    throw new Error('prompt must be under 1000 characters')
+  if (req.prompt.length > 3000) {
+    throw new Error('prompt must be under 3000 characters')
   }
 
   return req
@@ -117,6 +126,40 @@ async function generateThumbnail(
   } catch (error) {
     console.error('Thumbnail generation error:', error)
     throw new Error('Failed to generate thumbnail')
+  }
+}
+
+// Resize and crop image to exact dimensions (for social banners)
+async function resizeToExactDimensions(
+  pngBytes: Uint8Array,
+  targetWidth: number,
+  targetHeight: number
+): Promise<Uint8Array> {
+  try {
+    const image = await Image.decode(pngBytes)
+    const srcWidth = image.width
+    const srcHeight = image.height
+
+    // Calculate scaling to cover the target dimensions
+    const scaleX = targetWidth / srcWidth
+    const scaleY = targetHeight / srcHeight
+    const scale = Math.max(scaleX, scaleY)
+
+    // Scale up
+    const scaledWidth = Math.round(srcWidth * scale)
+    const scaledHeight = Math.round(srcHeight * scale)
+    image.resize(scaledWidth, scaledHeight)
+
+    // Crop to exact dimensions (center crop)
+    const cropX = Math.round((scaledWidth - targetWidth) / 2)
+    const cropY = Math.round((scaledHeight - targetHeight) / 2)
+    image.crop(cropX, cropY, targetWidth, targetHeight)
+
+    const resultBytes = await image.encode()
+    return resultBytes
+  } catch (error) {
+    console.error('Resize error:', error)
+    throw new Error('Failed to resize image')
   }
 }
 
@@ -234,17 +277,29 @@ Deno.serve(async (req) => {
     }
     const base64Data = btoa(binary)
 
-    // Build the prompt for image extension
-    const extensionPrompt = `${validatedReq.prompt}
+    // Determine if this is a social banner or standard wallpaper
+    const socialBanner = SOCIAL_BANNERS[validatedReq.aspectRatio]
+    const geminiAspectRatio = socialBanner ? socialBanner.geminiRatio : validatedReq.aspectRatio
+    const displayRatio = socialBanner
+      ? `${socialBanner.width}x${socialBanner.height} (${validatedReq.aspectRatio} banner)`
+      : validatedReq.aspectRatio
 
-CRITICAL: This is an existing AI-generated avatar image. Extend the canvas to fill the new ${validatedReq.aspectRatio} aspect ratio while:
-1. Keeping the original avatar content intact and centered
+    // Build the prompt for image extension
+    // For social banners, let the user's prompt handle composition (it has pixel-specific instructions)
+    // For wallpapers, add standard extension instructions
+    const extensionPrompt = socialBanner
+      ? validatedReq.prompt
+      : `${validatedReq.prompt}
+
+CRITICAL: This is an existing AI-generated avatar image. Extend the canvas to fill the new ${displayRatio} format while:
+1. Keeping the original avatar content intact
 2. Creating a natural, seamless extension of the background/environment
 3. Maintaining the same art style and color palette
 4. The extended areas should complement the original image perfectly
 5. Output a high-quality image that looks like it was originally created at this aspect ratio`
 
     console.log('Extension prompt:', extensionPrompt)
+    console.log('Using Gemini aspect ratio:', geminiAspectRatio, 'for requested:', validatedReq.aspectRatio)
 
     // Call Gemini API
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
@@ -276,7 +331,7 @@ CRITICAL: This is an existing AI-generated avatar image. Extend the canvas to fi
             }],
             generationConfig: {
               imageConfig: {
-                aspectRatio: validatedReq.aspectRatio,
+                aspectRatio: geminiAspectRatio,
                 imageSize: '1K',
               },
             },
@@ -345,10 +400,27 @@ CRITICAL: This is an existing AI-generated avatar image. Extend the canvas to fi
       )
     }
 
+    // Convert base64 to buffer
+    let wallpaperBuffer = Uint8Array.from(atob(generatedImageData), c => c.charCodeAt(0))
+
+    // For social banners, resize/crop to exact dimensions
+    let finalImageBase64 = generatedImageData
+    if (socialBanner) {
+      console.log(`Resizing to exact banner dimensions: ${socialBanner.width}x${socialBanner.height}`)
+      wallpaperBuffer = await resizeToExactDimensions(wallpaperBuffer, socialBanner.width, socialBanner.height)
+      // Re-encode to base64 for response
+      let binary = ''
+      const chunkSize = 8192
+      for (let i = 0; i < wallpaperBuffer.length; i += chunkSize) {
+        const chunk = wallpaperBuffer.subarray(i, i + chunkSize)
+        binary += String.fromCharCode(...chunk)
+      }
+      finalImageBase64 = btoa(binary)
+    }
+
     // Upload generated wallpaper to storage
     const aspectSuffix = validatedReq.aspectRatio.replace(':', 'x')
     const wallpaperFilename = `${user.id}/${Date.now()}_${crypto.randomUUID()}_wallpaper_${aspectSuffix}.png`
-    const wallpaperBuffer = Uint8Array.from(atob(generatedImageData), c => c.charCodeAt(0))
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from('avatars')
@@ -367,13 +439,24 @@ CRITICAL: This is an existing AI-generated avatar image. Extend the canvas to fi
     try {
       console.log('Generating thumbnail...')
       // Calculate thumbnail dimensions based on aspect ratio
-      const [w, h] = validatedReq.aspectRatio.split(':').map(Number)
       let thumbWidth = 300
       let thumbHeight = 300
-      if (w > h) {
-        thumbHeight = Math.round(300 * (h / w))
+      if (socialBanner) {
+        // For social banners, use exact dimensions
+        const ratio = socialBanner.width / socialBanner.height
+        if (ratio > 1) {
+          thumbHeight = Math.round(300 / ratio)
+        } else {
+          thumbWidth = Math.round(300 * ratio)
+        }
       } else {
-        thumbWidth = Math.round(300 * (w / h))
+        // For standard aspect ratios like "16:9"
+        const [w, h] = validatedReq.aspectRatio.split(':').map(Number)
+        if (w > h) {
+          thumbHeight = Math.round(300 * (h / w))
+        } else {
+          thumbWidth = Math.round(300 * (w / h))
+        }
       }
 
       const thumbnailBuffer = await generateThumbnail(wallpaperBuffer, thumbWidth, thumbHeight, 98)
@@ -444,7 +527,7 @@ CRITICAL: This is an existing AI-generated avatar image. Extend the canvas to fi
     return new Response(
       JSON.stringify({
         success: true,
-        image: `data:image/png;base64,${generatedImageData}`,
+        image: `data:image/png;base64,${finalImageBase64}`,
         wallpaperPath: wallpaperFilename,
         wallpaperUrl: signedUrlData?.signedUrl,
         thumbnailPath: thumbnailFilename,

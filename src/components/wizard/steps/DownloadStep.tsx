@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { WizardHook } from '@/hooks/useWizard'
-import { Download, RefreshCw, Images, RotateCw, ArrowLeft, Share2, Copy } from 'lucide-react'
+import { Download, RefreshCw, Images, RotateCw, ArrowLeft, Share2, Monitor } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface DownloadStepProps {
@@ -10,6 +10,7 @@ interface DownloadStepProps {
 }
 
 export function DownloadStep({ wizard }: DownloadStepProps) {
+  const navigate = useNavigate()
   const { state, reset, regenerate, goBackFromDownload } = wizard
   const [downloading, setDownloading] = useState(false)
 
@@ -39,7 +40,7 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
     setDownloading(true)
 
     try {
-      // Create canvas to resize to 1024x1024
+      // Create canvas - preserve aspect ratio from generation
       const img = new Image()
       img.crossOrigin = 'anonymous'
 
@@ -49,14 +50,15 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
         img.src = state.generatedImage!
       })
 
+      // Use native image dimensions (preserves aspect ratio from Gemini)
       const canvas = document.createElement('canvas')
-      canvas.width = 1024
-      canvas.height = 1024
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
       const ctx = canvas.getContext('2d')
 
       if (!ctx) throw new Error('Could not get canvas context')
 
-      ctx.drawImage(img, 0, 0, 1024, 1024)
+      ctx.drawImage(img, 0, 0)
 
       // Download
       const link = document.createElement('a')
@@ -109,6 +111,14 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
     }
   }
 
+  const handleCreateWallpaper = () => {
+    if (!state.generationId) {
+      toast.error('Unable to create wallpaper')
+      return
+    }
+    navigate(`/wallpaper/${state.generationId}`)
+  }
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-white text-center">
@@ -116,7 +126,17 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
       </h2>
 
       {/* Preview */}
-      <div className="relative aspect-square max-w-sm mx-auto rounded-2xl overflow-hidden border-2 border-purple-500/50 shadow-lg shadow-purple-500/20">
+      <div
+        className="relative max-w-sm mx-auto rounded-2xl overflow-hidden border-2 border-purple-500/50 shadow-lg shadow-purple-500/20"
+        style={{
+          aspectRatio: state.aspectRatio === '1:1' ? '1/1'
+            : state.aspectRatio === '16:9' ? '16/9'
+            : state.aspectRatio === '9:16' ? '9/16'
+            : state.aspectRatio === '4:3' ? '4/3'
+            : state.aspectRatio === '3:4' ? '3/4'
+            : '1/1'
+        }}
+      >
         <img
           src={state.generatedImage!}
           alt="Generated avatar"
@@ -182,18 +202,14 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
           <Share2 className="mr-2 h-4 w-4" />
           Share
         </Button>
-        {state.shareUrl && (
+        {state.generationId && (
           <Button
             variant="outline"
-            onClick={async () => {
-              await navigator.clipboard.writeText(state.shareUrl!)
-              toast.success('Link copied!')
-            }}
+            onClick={handleCreateWallpaper}
             className="bg-transparent border-white/20 text-white hover:bg-white/10"
-            title="Copy link"
           >
-            <Copy className="mr-2 h-4 w-4" />
-            Copy Link
+            <Monitor className="mr-2 h-4 w-4" />
+            Wallpaper
           </Button>
         )}
       </div>

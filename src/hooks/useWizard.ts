@@ -25,6 +25,7 @@ const createInitialState = (options?: AvatarOptions | null): WizardState => ({
   namePlacement: options?.namePlacements[0]?.id || 'graffiti',
   customPlacement: '',
   generatedImage: null,
+  generationId: null,
   isPublic: true,
   shareUrl: null,
   // Generation options (standard mode only - when use_legacy_options=true)
@@ -39,6 +40,8 @@ const createInitialState = (options?: AvatarOptions | null): WizardState => ({
   inputValues: {},
   // Custom mode options
   preserveFacialIdentity: true,  // Default true, will be managed based on photo selection
+  aspectRatio: '1:1',
+  imageSize: '1K',
 })
 
 export function useWizard(options?: AvatarOptions | null) {

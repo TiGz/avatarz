@@ -17,18 +17,55 @@ import {
   Sparkles,
   AlertCircle,
   ArrowLeft,
-  Check
+  Check,
+  RectangleHorizontal
 } from 'lucide-react'
 
-// Aspect ratio options
-const ASPECT_RATIOS = [
+// Wallpaper aspect ratio options
+const WALLPAPER_RATIOS = [
   { id: '16:9', label: 'Landscape 16:9', icon: Monitor, description: 'Desktop, TV, laptop' },
   { id: '9:16', label: 'Portrait 9:16', icon: Smartphone, description: 'Phone wallpaper' },
   { id: '4:3', label: 'Standard 4:3', icon: Monitor, description: 'Tablet, older monitors' },
   { id: '3:4', label: 'Portrait 3:4', icon: Smartphone, description: 'Tablet portrait' },
 ]
 
-const DEFAULT_PROMPT = `Extend this avatar image to fill the frame, creating a beautiful and complementary background that matches the art style. Keep the avatar as the main focus in the center.`
+// Social media banner options with fixed dimensions
+const SOCIAL_BANNERS = [
+  { id: 'linkedin', label: 'LinkedIn', icon: RectangleHorizontal, description: '1584×396', width: 1584, height: 396 },
+  { id: 'facebook', label: 'Facebook', icon: RectangleHorizontal, description: '851×315', width: 851, height: 315 },
+  { id: 'twitter', label: 'X / Twitter', icon: RectangleHorizontal, description: '1500×500', width: 1500, height: 500 },
+  { id: 'youtube', label: 'YouTube', icon: RectangleHorizontal, description: '2560×1440', width: 2560, height: 1440 },
+]
+
+// Combined for lookup
+const ALL_OPTIONS = [...WALLPAPER_RATIOS, ...SOCIAL_BANNERS]
+
+const WALLPAPER_PROMPT = `Extend this avatar image to fill the frame, creating a beautiful and complementary background that matches the art style. Keep the avatar as the main focus in the center.`
+
+// Banner prompt is a function so we can inject pixel dimensions
+const getBannerPrompt = (width: number, height: number) => `Transform this square avatar into a ${width}x${height} pixel social media banner.
+
+CRITICAL SIZE CONSTRAINT:
+- The output image is ${height} pixels tall
+- The character must be SCALED DOWN to fit entirely within ${height} pixels height with padding
+- Target character height: approximately ${Math.round(height * 0.85)} pixels (leaving space above head and below feet)
+- DO NOT crop the character - SHRINK it to fit
+
+COMPOSITION:
+- WIDE SHOT with the complete character (head to toe) scaled to fit the ${height}px height
+- Position the scaled-down character on the RIGHT side, occupying ~30% of the ${width}px width
+- The LEFT 70% is for background and text elements
+
+TEXT & GRAFFITI:
+- If the original image contains text, graffiti, or name lettering, RECREATE it in the same style on the LEFT side of the banner
+- The text should be prominent and readable, positioned to the left of the character
+- Match the original text style (graffiti, neon, hand-lettered, etc.) exactly
+
+STYLE:
+- Maintain the original art style, colors, and mood
+- Seamlessly extend background elements across the wide format
+
+OUTPUT: A banner where the full character is SMALLER than the original, fitting completely within the frame, with any text/graffiti repositioned to the left.`
 
 export function WallpaperPage() {
   const { generationId } = useParams<{ generationId: string }>()
@@ -43,7 +80,8 @@ export function WallpaperPage() {
 
   // Form state
   const [selectedRatio, setSelectedRatio] = useState<string>('16:9')
-  const [prompt, setPrompt] = useState(DEFAULT_PROMPT)
+  const [prompt, setPrompt] = useState(WALLPAPER_PROMPT)
+  const [hasEditedPrompt, setHasEditedPrompt] = useState(false)
 
   // Generation state
   const [generating, setGenerating] = useState(false)
@@ -71,6 +109,18 @@ export function WallpaperPage() {
       setSelectedRatio('3:4') // Standard portrait
     }
   }, [screenResolution])
+
+  // Update prompt when switching between wallpaper and banner (if not manually edited)
+  useEffect(() => {
+    if (hasEditedPrompt) return
+
+    const banner = SOCIAL_BANNERS.find(b => b.id === selectedRatio)
+    if (banner) {
+      setPrompt(getBannerPrompt(banner.width, banner.height))
+    } else {
+      setPrompt(WALLPAPER_PROMPT)
+    }
+  }, [selectedRatio, hasEditedPrompt])
 
   // Fetch source generation
   useEffect(() => {
@@ -125,6 +175,11 @@ export function WallpaperPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error('Not authenticated')
 
+      // For social banners, use fixed dimensions; for wallpapers, use screen resolution
+      const selectedOption = ALL_OPTIONS.find(r => r.id === selectedRatio)
+      const targetWidth = (selectedOption as any)?.width || screenResolution.width
+      const targetHeight = (selectedOption as any)?.height || screenResolution.height
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extend-image`,
         {
@@ -137,8 +192,8 @@ export function WallpaperPage() {
             generationId: sourceGen.id,
             aspectRatio: selectedRatio,
             prompt: prompt.trim(),
-            targetWidth: screenResolution.width,
-            targetHeight: screenResolution.height,
+            targetWidth,
+            targetHeight,
           }),
         }
       )
@@ -163,14 +218,28 @@ export function WallpaperPage() {
   const handleDownload = () => {
     if (!generatedImage) return
 
+    const isSocialBanner = SOCIAL_BANNERS.some(b => b.id === selectedRatio)
+    const filename = isSocialBanner
+      ? `${selectedRatio}_banner_${Date.now()}.png`
+      : `wallpaper_${selectedRatio.replace(':', 'x')}_${Date.now()}.png`
+
     const a = document.createElement('a')
     a.href = generatedImage
-    a.download = `wallpaper_${selectedRatio.replace(':', 'x')}_${Date.now()}.png`
+    a.download = filename
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     toast.success('Download started!')
   }
+
+  // Compute output dimensions for display (must be before early returns)
+  const outputDimensions = useMemo(() => {
+    const selectedOption = ALL_OPTIONS.find(r => r.id === selectedRatio)
+    const isSocialBanner = SOCIAL_BANNERS.some(b => b.id === selectedRatio)
+    const width = (selectedOption as any)?.width || screenResolution.width
+    const height = (selectedOption as any)?.height || screenResolution.height
+    return { width, height, isSocialBanner }
+  }, [selectedRatio, screenResolution])
 
   // Loading state
   if (sourceLoading || quotaLoading) {
@@ -209,126 +278,172 @@ export function WallpaperPage() {
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black">
       <Header showBack />
 
-      <main className="px-4 py-6 max-w-4xl mx-auto">
+      <main className="px-4 py-6 max-w-6xl mx-auto">
         <h1 className="text-2xl font-bold text-white mb-2">Create Wallpaper</h1>
         <p className="text-gray-400 mb-6">
           Extend your avatar to fit your screen as a wallpaper
         </p>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Left column - Source image preview */}
-          <div className="space-y-4">
-            <div className="bg-white/5 rounded-xl p-4">
-              <Label className="text-white mb-2 block">Source Avatar</Label>
-              <div className="aspect-square rounded-lg overflow-hidden bg-black/50">
-                {sourceImageUrl ? (
-                  <img
-                    src={sourceImageUrl}
-                    alt="Source avatar"
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Style: {sourceGen.style.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-              </p>
-            </div>
-
-            {/* Screen info */}
-            <div className="bg-white/5 rounded-xl p-4">
-              <Label className="text-white mb-2 block">Your Screen</Label>
-              <div className="flex items-center gap-2 text-gray-300">
-                <Monitor className="h-4 w-4" />
-                <span>{screenResolution.width} x {screenResolution.height}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right column - Options */}
-          <div className="space-y-4">
-            {/* Aspect ratio selector */}
-            <div className="bg-white/5 rounded-xl p-4">
-              <Label className="text-white mb-3 block">Aspect Ratio</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {ASPECT_RATIOS.map((ratio) => {
-                  const Icon = ratio.icon
-                  const isSelected = selectedRatio === ratio.id
-                  return (
-                    <button
-                      key={ratio.id}
-                      onClick={() => setSelectedRatio(ratio.id)}
-                      className={`p-3 rounded-lg border-2 transition-all text-left ${
-                        isSelected
-                          ? 'border-purple-500 bg-purple-500/20'
-                          : 'border-white/10 bg-white/5 hover:border-white/20'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Icon className={`h-4 w-4 ${isSelected ? 'text-purple-400' : 'text-gray-400'}`} />
-                        <span className={`font-medium ${isSelected ? 'text-white' : 'text-gray-300'}`}>
-                          {ratio.id}
-                        </span>
-                        {isSelected && <Check className="h-4 w-4 text-purple-400 ml-auto" />}
-                      </div>
-                      <p className="text-xs text-gray-500">{ratio.description}</p>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Prompt */}
-            <div className="bg-white/5 rounded-xl p-4">
-              <Label className="text-white mb-2 block">Extension Prompt</Label>
-              <Textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe how to extend the image..."
-                className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 min-h-[100px]"
-                maxLength={1000}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                {prompt.length}/1000 characters
-              </p>
-            </div>
-
-            {/* Quota warning */}
-            {quota && !quota.is_admin && (
-              <div className={`rounded-lg p-3 ${
-                quota.remaining <= 3 ? 'bg-amber-500/20 border border-amber-500/50' : 'bg-white/5'
-              }`}>
-                <p className={`text-sm ${quota.remaining <= 3 ? 'text-amber-300' : 'text-gray-400'}`}>
-                  {quota.remaining <= 0
-                    ? 'No generations remaining today'
-                    : `This will use 1 of your ${quota.remaining} remaining generations today`
-                  }
-                </p>
-              </div>
-            )}
-
-            {/* Generate button */}
-            <Button
-              onClick={handleGenerate}
-              disabled={generating || !!(quota && quota.remaining <= 0 && !quota.is_admin)}
-              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 h-12 text-lg"
-            >
-              {generating ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Generating...
-                </>
+        {/* Top row: Avatar + Format selectors side by side on wide screens */}
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_1fr] gap-4 mb-4">
+          {/* Source Avatar - compact on wide screens */}
+          <div className="bg-white/5 rounded-xl p-4">
+            <Label className="text-white mb-2 block text-sm">Source Avatar</Label>
+            <div className="aspect-square rounded-lg overflow-hidden bg-black/50 max-w-[240px] mx-auto lg:max-w-none">
+              {sourceImageUrl ? (
+                <img
+                  src={sourceImageUrl}
+                  alt="Source avatar"
+                  className="w-full h-full object-contain"
+                />
               ) : (
-                <>
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Generate Wallpaper
-                </>
+                <div className="w-full h-full flex items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+                </div>
               )}
-            </Button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2 text-center lg:text-left">
+              {sourceGen.style.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+            </p>
           </div>
+
+          {/* Wallpaper formats */}
+          <div className="bg-white/5 rounded-xl p-4">
+            <Label className="text-white mb-3 block text-sm">Wallpapers</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {WALLPAPER_RATIOS.map((ratio) => {
+                const Icon = ratio.icon
+                const isSelected = selectedRatio === ratio.id
+                return (
+                  <button
+                    key={ratio.id}
+                    onClick={() => setSelectedRatio(ratio.id)}
+                    className={`p-2.5 rounded-lg border-2 transition-all text-left ${
+                      isSelected
+                        ? 'border-purple-500 bg-purple-500/20'
+                        : 'border-white/10 bg-white/5 hover:border-white/20'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon className={`h-4 w-4 flex-shrink-0 ${isSelected ? 'text-purple-400' : 'text-gray-400'}`} />
+                      <span className={`font-medium text-sm ${isSelected ? 'text-white' : 'text-gray-300'}`}>
+                        {ratio.label}
+                      </span>
+                      {isSelected && <Check className="h-3.5 w-3.5 text-purple-400 ml-auto flex-shrink-0" />}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5 ml-6">{ratio.description}</p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Social Banners */}
+          <div className="bg-white/5 rounded-xl p-4">
+            <Label className="text-white mb-3 block text-sm">Social Banners</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {SOCIAL_BANNERS.map((banner) => {
+                const Icon = banner.icon
+                const isSelected = selectedRatio === banner.id
+                return (
+                  <button
+                    key={banner.id}
+                    onClick={() => setSelectedRatio(banner.id)}
+                    className={`p-2.5 rounded-lg border-2 transition-all text-left ${
+                      isSelected
+                        ? 'border-purple-500 bg-purple-500/20'
+                        : 'border-white/10 bg-white/5 hover:border-white/20'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon className={`h-4 w-4 flex-shrink-0 ${isSelected ? 'text-purple-400' : 'text-gray-400'}`} />
+                      <span className={`font-medium text-sm ${isSelected ? 'text-white' : 'text-gray-300'}`}>
+                        {banner.label}
+                      </span>
+                      {isSelected && <Check className="h-3.5 w-3.5 text-purple-400 ml-auto flex-shrink-0" />}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5 ml-6">{banner.description}</p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Prompt - full width */}
+        <div className="bg-white/5 rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <Label className="text-white text-sm">Extension Prompt</Label>
+            <div className="flex items-center gap-4 text-xs text-gray-500">
+              <span>
+                {outputDimensions.isSocialBanner ? <RectangleHorizontal className="h-3.5 w-3.5 inline mr-1" /> : <Monitor className="h-3.5 w-3.5 inline mr-1" />}
+                {outputDimensions.width} x {outputDimensions.height}
+                {!outputDimensions.isSocialBanner && ' (your screen)'}
+              </span>
+              <span>{prompt.length}/3000</span>
+            </div>
+          </div>
+          <Textarea
+            value={prompt}
+            onChange={(e) => {
+              setPrompt(e.target.value)
+              setHasEditedPrompt(true)
+            }}
+            placeholder="Describe how to extend the image..."
+            className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 min-h-[140px] lg:min-h-[180px] resize-y"
+            maxLength={3000}
+          />
+          {hasEditedPrompt && (
+            <div className="mt-2 text-right">
+              <button
+                onClick={() => {
+                  setHasEditedPrompt(false)
+                  const banner = SOCIAL_BANNERS.find(b => b.id === selectedRatio)
+                  if (banner) {
+                    setPrompt(getBannerPrompt(banner.width, banner.height))
+                  } else {
+                    setPrompt(WALLPAPER_PROMPT)
+                  }
+                }}
+                className="text-xs text-purple-400 hover:text-purple-300"
+              >
+                Reset to default
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Quota + Generate button row */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mb-6">
+          {quota && !quota.is_admin && (
+            <div className={`rounded-lg px-4 py-3 flex-1 ${
+              quota.remaining <= 3 ? 'bg-amber-500/20 border border-amber-500/50' : 'bg-white/5'
+            }`}>
+              <p className={`text-sm ${quota.remaining <= 3 ? 'text-amber-300' : 'text-gray-400'}`}>
+                {quota.remaining <= 0
+                  ? 'No generations remaining today'
+                  : `This will use 1 of your ${quota.remaining} remaining generations today`
+                }
+              </p>
+            </div>
+          )}
+          <Button
+            onClick={handleGenerate}
+            disabled={generating || !!(quota && quota.remaining <= 0 && !quota.is_admin)}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 h-12 px-8 text-lg sm:w-auto"
+          >
+            {generating ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-5 w-5" />
+                Generate Wallpaper
+              </>
+            )}
+          </Button>
         </div>
 
         {/* Generated result */}
