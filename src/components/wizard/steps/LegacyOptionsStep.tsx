@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { WizardHook } from '@/hooks/useWizard'
@@ -193,15 +194,16 @@ export function LegacyOptionsStep({ wizard, options }: LegacyOptionsStepProps) {
 
         {state.customTextEnabled && (
           <div className="pl-8 border-l-2 border-purple-500/30">
-            <Input
+            <Textarea
               placeholder="e.g., wearing red sunglasses, holding a coffee cup"
               value={state.customText}
               onChange={(e) => updateState({ customText: e.target.value })}
-              maxLength={150}
-              className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+              maxLength={1000}
+              rows={10}
+              className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 resize-none"
             />
             <p className="text-xs text-gray-500 text-right mt-1">
-              {state.customText.length}/150
+              {state.customText.length}/1000
             </p>
           </div>
         )}
