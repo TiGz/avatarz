@@ -99,34 +99,34 @@ export function LegacyOptionsStep({ wizard, options }: LegacyOptionsStepProps) {
 
       {/* Background Section */}
       <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-3">
+          <Checkbox
+            id="keepBackground"
             checked={state.keepBackground}
-            onChange={(e) => updateState({ keepBackground: e.target.checked })}
-            className="w-5 h-5 rounded border-white/20 bg-white/5 text-purple-500 focus:ring-purple-500"
+            onCheckedChange={(checked) => updateState({ keepBackground: !!checked })}
+            className="border-white/30 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500"
           />
-          <div className="flex items-center gap-2">
+          <label htmlFor="keepBackground" className="flex items-center gap-2 cursor-pointer">
             <Palette className="w-4 h-4 text-gray-400" />
             <span className="text-white">Keep original background</span>
-          </div>
-        </label>
+          </label>
+        </div>
       </div>
 
       {/* Name Overlay Section */}
       <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-        <label className="flex items-center gap-3 cursor-pointer mb-4">
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-3 mb-4">
+          <Checkbox
+            id="showName"
             checked={state.showName}
-            onChange={(e) => updateState({ showName: e.target.checked })}
-            className="w-5 h-5 rounded border-white/20 bg-white/5 text-purple-500 focus:ring-purple-500"
+            onCheckedChange={(checked) => updateState({ showName: !!checked })}
+            className="border-white/30 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500"
           />
-          <div className="flex items-center gap-2">
+          <label htmlFor="showName" className="flex items-center gap-2 cursor-pointer">
             <Sparkles className="w-4 h-4 text-gray-400" />
             <span className="text-white">Add name overlay</span>
-          </div>
-        </label>
+          </label>
+        </div>
 
         {state.showName && (
           <div className="space-y-4 pl-8 border-l-2 border-purple-500/30">
