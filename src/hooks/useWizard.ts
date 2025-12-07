@@ -37,6 +37,8 @@ const createInitialState = (options?: AvatarOptions | null): WizardState => ({
   selectedPhotos: [],
   // Dynamic inputs (for styles with input_schema)
   inputValues: {},
+  // Custom mode options
+  preserveFacialIdentity: true,  // Default true, will be managed based on photo selection
 })
 
 export function useWizard(options?: AvatarOptions | null) {
@@ -53,12 +55,20 @@ export function useWizard(options?: AvatarOptions | null) {
       if (s === WIZARD_STEPS.CATEGORY && isCustomCategory) {
         return WIZARD_STEPS.CAPTURE
       }
+      // If on Capture step and custom category, jump to Generate (skip Options)
+      if (s === WIZARD_STEPS.CAPTURE && isCustomCategory) {
+        return WIZARD_STEPS.GENERATE
+      }
       return Math.min(s + 1, MAX_STEP)
     })
   }
 
   const prevStep = () => {
     setStep((s) => {
+      // If on Generate step and custom category, go back to Capture (skip Options)
+      if (s === WIZARD_STEPS.GENERATE && isCustomCategory) {
+        return WIZARD_STEPS.CAPTURE
+      }
       // If on Capture step and custom category, go back to Category (skip Style)
       if (s === WIZARD_STEPS.CAPTURE && isCustomCategory) {
         return WIZARD_STEPS.CATEGORY

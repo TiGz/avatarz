@@ -87,6 +87,8 @@ export interface WizardState {
   selectedPhotos: Array<{ id: string; url: string; thumbnailUrl?: string }>  // Photo data with optional thumbnail
   // Dynamic inputs (for styles with input_schema)
   inputValues: Record<string, string>
+  // Custom mode options
+  preserveFacialIdentity: boolean  // Whether to add face-preservation system prompt
 }
 
 // API request/response types
@@ -224,6 +226,7 @@ export interface RecentGeneration {
   gen_total_tokens: number | null
   gen_cost_usd: number | null
   gen_created_at: string
+  gen_thumbnail_path: string | null
 }
 
 // Extended wizard state to support photo library

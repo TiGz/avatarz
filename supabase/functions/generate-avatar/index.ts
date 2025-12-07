@@ -192,6 +192,9 @@ interface GenerateAvatarRequest {
   keepBackground?: boolean
   ageModification?: 'normal' | 'younger' | 'older'
   customisationText?: string
+
+  // Custom mode options
+  preserveFacialIdentity?: boolean  // Whether to add face-preservation system prompt
 }
 
 interface GeminiResponse {
@@ -260,12 +263,13 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
 
   const req = payload as GenerateAvatarRequest
 
-  // Validate photo input - must have either imageData OR photoIds
+  // Validate photo input - must have either imageData OR photoIds (unless using customStyle for pure generation)
   const hasImageData = req.imageData && typeof req.imageData === 'string'
   const hasPhotoIds = req.photoIds && Array.isArray(req.photoIds) && req.photoIds.length > 0
+  const isCustomWithNoPhotos = req.customStyle && !hasImageData && !hasPhotoIds
 
-  if (!hasImageData && !hasPhotoIds) {
-    throw new Error('Either imageData or photoIds is required')
+  if (!hasImageData && !hasPhotoIds && !isCustomWithNoPhotos) {
+    throw new Error('Either imageData or photoIds is required (unless using custom prompt without photos)')
   }
 
   // Validate imageData if provided
@@ -652,7 +656,7 @@ Deno.serve(async (req) => {
       imageDataArray.push(image)
     }
 
-    if (imageDataArray.length === 0) {
+    if (imageDataArray.length === 0 && !validatedReq.customStyle) {
       throw new Error('No images provided')
     }
 
@@ -846,11 +850,22 @@ Deno.serve(async (req) => {
       if (namePrompt) promptParts.push(namePrompt)
     }
 
-    // System suffix (always add for face recognition)
-    if (imageDataArray.length > 1) {
-      promptParts.push(`CRITICAL: Preserve the exact facial identity of ALL ${imageDataArray.length} people in the photos - their bone structure, eye shape and color, nose shape, mouth, jawline, and expression must remain clearly recognizable. These are portraits of specific real individuals, not generic faces. Maintain each person's unique distinguishing features and skin characteristics. The final result must show these same people as recognizable individuals. High quality output.`)
-    } else {
-      promptParts.push('CRITICAL: Preserve the exact facial identity of the person in the photo - their bone structure, eye shape and color, nose shape, mouth, jawline, and expression must remain clearly recognizable. This is a portrait of a specific real individual, not a generic face. Maintain their unique distinguishing features and skin characteristics. The final result must look like the same person. High quality output.')
+    // System suffix for face recognition
+    // For custom mode: only add if preserveFacialIdentity is true (user opted in)
+    // For other styles: always add when photos exist
+    const shouldPreserveFace = validatedReq.customStyle
+      ? validatedReq.preserveFacialIdentity === true && imageDataArray.length > 0
+      : imageDataArray.length > 0  // Non-custom styles always preserve face when photos exist
+
+    if (shouldPreserveFace) {
+      if (imageDataArray.length > 1) {
+        promptParts.push(`CRITICAL: Preserve the exact facial identity of ALL ${imageDataArray.length} people in the photos - their bone structure, eye shape and color, nose shape, mouth, jawline, and expression must remain clearly recognizable. These are portraits of specific real individuals, not generic faces. Maintain each person's unique distinguishing features and skin characteristics. The final result must show these same people as recognizable individuals. High quality output.`)
+      } else {
+        promptParts.push('CRITICAL: Preserve the exact facial identity of the person in the photo - their bone structure, eye shape and color, nose shape, mouth, jawline, and expression must remain clearly recognizable. This is a portrait of a specific real individual, not a generic face. Maintain their unique distinguishing features and skin characteristics. The final result must look like the same person. High quality output.')
+      }
+    } else if (imageDataArray.length === 0) {
+      // Pure text-to-image generation (no photos) - just add quality suffix
+      promptParts.push('High quality output.')
     }
 
     const prompt = promptParts.join(' ').trim()

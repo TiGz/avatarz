@@ -18,8 +18,8 @@ import { Loader2 } from 'lucide-react'
 const LEGACY_STEPS = ['Category', 'Style', 'Photo', 'Options', 'Generate', 'Download']
 // Step labels for special styles (dynamic inputs or no options)
 const SPECIAL_STEPS = ['Category', 'Style', 'Photo', 'Customize', 'Generate', 'Download']
-// Step labels for custom category flow (skip Style)
-const CUSTOM_STEPS = ['Category', 'Photo', 'Generate', 'Download']
+// Step labels for custom category flow (skip Style and Options)
+const CUSTOM_STEPS = ['Category', 'Photos', 'Prompt', 'Download']
 
 export function WizardContainer() {
   const { options, loading } = useAvatarOptions()
@@ -109,6 +109,7 @@ export function WizardContainer() {
             wizard={wizard}
             minPhotos={selectedStyle?.minPhotos ?? 1}
             maxPhotos={selectedStyle?.maxPhotos ?? 1}
+            isCustomCategory={wizard.isCustomCategory}
           />
         )
       case WIZARD_STEPS.OPTIONS:

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, PanInfo } from 'framer-motion'
 import { Generation } from '@/types'
-import { X, Download, Calendar, Palette, Crop, Type, Loader2, Trash2, Share2, Copy, ChevronDown, ChevronLeft, ChevronRight, Monitor } from 'lucide-react'
+import { X, Download, Calendar, Palette, Crop, Type, Loader2, Trash2, Share2, ChevronDown, ChevronLeft, ChevronRight, Monitor } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -249,10 +249,10 @@ export function AvatarModal({
             </button>
           )}
 
-          <div className="flex flex-col sm:flex-row">
+          <div className="flex flex-col sm:flex-row min-h-0">
             {/* Image - progressive loading from thumbnail to full resolution */}
             <motion.div
-              className="w-full sm:w-2/3 aspect-square bg-black relative overflow-hidden flex-shrink-0"
+              className="w-full sm:w-2/3 bg-black relative overflow-hidden flex-shrink-0 min-h-[200px] max-h-[50vh] sm:max-h-none sm:aspect-square flex items-center justify-center"
               drag="x"
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.3}
@@ -349,53 +349,44 @@ export function AvatarModal({
               )}
 
               {/* Action buttons */}
-              <div className="flex gap-2 sm:flex-col sm:space-y-2 sm:gap-0 pb-4 sm:pb-0">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-1 pb-4 sm:pb-0">
                 <Button
                   onClick={() => onDownload(generation)}
-                  className="flex-1 sm:w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 h-auto py-2"
                 >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download
+                  <span className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+                    <Download className="h-4 w-4" />
+                    <span className="text-xs sm:text-sm">Download</span>
+                  </span>
                 </Button>
                 <Button
                   variant="outline"
                   onClick={handleCreateWallpaper}
-                  className="flex-1 sm:w-full border-white/20 text-white bg-white/5 hover:bg-white/10"
+                  className="border-white/20 text-white bg-white/5 hover:bg-white/10 h-auto py-2"
                 >
-                  <Monitor className="mr-2 h-4 w-4" />
-                  Wallpaper
+                  <span className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+                    <Monitor className="h-4 w-4" />
+                    <span className="text-xs sm:text-sm">Wallpaper</span>
+                  </span>
                 </Button>
-                <div className="flex-1 sm:w-full flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={handleShare}
-                    className="flex-1 border-white/20 text-white bg-white/5 hover:bg-white/10"
-                  >
-                    <Share2 className="mr-2 h-4 w-4" />
-                    Share
-                  </Button>
-                  {generation.share_url && (
-                    <Button
-                      variant="outline"
-                      onClick={async () => {
-                        await navigator.clipboard.writeText(generation.share_url!)
-                        toast.success('Link copied!')
-                      }}
-                      className="border-white/20 text-white bg-white/5 hover:bg-white/10 px-3"
-                      title="Copy link"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
+                <Button
+                  variant="outline"
+                  onClick={handleShare}
+                  className="border-white/20 text-white bg-white/5 hover:bg-white/10 h-auto py-2"
+                >
+                  <span className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+                    <Share2 className="h-4 w-4" />
+                    <span className="text-xs sm:text-sm">Share</span>
+                  </span>
+                </Button>
                 {onDelete && (
                   <Button
                     variant="outline"
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="flex-1 sm:w-full border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                    className="col-span-3 sm:col-span-1 border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
+                    <span className="text-sm">Delete</span>
                   </Button>
                 )}
               </div>

@@ -12,10 +12,14 @@ interface CaptureStepProps {
   wizard: WizardHook
   minPhotos?: number  // From selected style (default 1)
   maxPhotos?: number  // From selected style (default 1)
+  isCustomCategory?: boolean  // Custom category allows 0-6 photos
 }
 
-export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureStepProps) {
-  const isMultiPhoto = maxPhotos > 1
+export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1, isCustomCategory = false }: CaptureStepProps) {
+  // Custom category allows 0-6 photos
+  const effectiveMinPhotos = isCustomCategory ? 0 : minPhotos
+  const effectiveMaxPhotos = isCustomCategory ? 6 : maxPhotos
+  const isMultiPhoto = effectiveMaxPhotos > 1
   const [mode, setMode] = useState<'select' | 'webcam' | 'upload' | 'library'>('select')
   const [cameraError, setCameraError] = useState(false)
   const [saveToLibrary, setSaveToLibrary] = useState(true)
@@ -62,8 +66,8 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
     if (isMultiPhoto) {
       // Multi-photo mode: toggle selection
       const isSelected = wizard.state.selectedPhotoIds.includes(photo.id)
-      if (!isSelected && wizard.state.selectedPhotoIds.length >= maxPhotos) {
-        toast.error(`Maximum ${maxPhotos} photos allowed`)
+      if (!isSelected && wizard.state.selectedPhotoIds.length >= effectiveMaxPhotos) {
+        toast.error(`Maximum ${effectiveMaxPhotos} photos allowed`)
         return
       }
       wizard.togglePhotoSelection(photo.id, photo.url, photo.thumbnailUrl)
@@ -79,12 +83,12 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
 
   // Check if enough photos are selected for multi-photo styles
   const hasEnoughPhotos = isMultiPhoto
-    ? wizard.state.selectedPhotoIds.length >= minPhotos
+    ? wizard.state.selectedPhotoIds.length >= effectiveMinPhotos
     : !!wizard.state.imageData
 
   // For multi-photo, we need to proceed with selected photo IDs
   const handleMultiPhotoContinue = () => {
-    if (wizard.state.selectedPhotoIds.length >= minPhotos) {
+    if (wizard.state.selectedPhotoIds.length >= effectiveMinPhotos) {
       wizard.nextStep()
     }
   }
@@ -183,7 +187,7 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
 
         {isMultiPhoto && (
           <p className="text-gray-400 text-center">
-            {selectedCount} of {minPhotos === maxPhotos ? minPhotos : `${minPhotos}-${maxPhotos}`} photos selected
+            {selectedCount} of {effectiveMinPhotos === effectiveMaxPhotos ? effectiveMinPhotos : `${effectiveMinPhotos}-${effectiveMaxPhotos}`} photos selected
           </p>
         )}
 
@@ -221,7 +225,7 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={isConfirming || (isMultiPhoto && selectedCount >= maxPhotos)}
+            disabled={isConfirming || (isMultiPhoto && selectedCount >= effectiveMaxPhotos)}
             className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
           >
             {isConfirming ? 'Saving...' : isMultiPhoto ? 'Add Photo' : 'Continue'}
@@ -281,7 +285,7 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
 
         {isMultiPhoto && (
           <p className="text-gray-400 text-center">
-            Select {minPhotos === maxPhotos ? minPhotos : `${minPhotos}-${maxPhotos}`} photos
+            Select {isCustomCategory ? 'up to' : ''} {effectiveMinPhotos === effectiveMaxPhotos ? effectiveMinPhotos : `${effectiveMinPhotos}-${effectiveMaxPhotos}`} photos {isCustomCategory ? '(optional)' : ''}
             <span className="ml-2 text-purple-400 font-medium">
               ({selectedCount} selected)
             </span>
@@ -313,7 +317,7 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
               disabled={!hasEnoughPhotos}
               className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
             >
-              Continue ({selectedCount}/{minPhotos})
+              Continue {effectiveMinPhotos > 0 ? `(${selectedCount}/${effectiveMinPhotos})` : ''}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           )}
@@ -400,7 +404,7 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
   // Selection mode for multi-photo styles
   if (isMultiPhoto) {
     const selectedCount = wizard.state.selectedPhotoIds.length
-    const canAddMore = selectedCount < maxPhotos
+    const canAddMore = selectedCount < effectiveMaxPhotos
 
     return (
       <div className="space-y-6">
@@ -408,7 +412,7 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
           Add your photos
         </h2>
         <p className="text-gray-400 text-center">
-          Select {minPhotos === maxPhotos ? minPhotos : `${minPhotos}-${maxPhotos}`} photos
+          {isCustomCategory ? 'Add photos (optional)' : `Select ${effectiveMinPhotos === effectiveMaxPhotos ? effectiveMinPhotos : `${effectiveMinPhotos}-${effectiveMaxPhotos}`} photos`}
           <span className="ml-2 text-purple-400 font-medium">
             ({selectedCount} selected)
           </span>
@@ -482,7 +486,7 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
 
         {!canAddMore && (
           <p className="text-green-400 text-center text-sm">
-            All {maxPhotos} photos selected!
+            All {effectiveMaxPhotos} photos selected!
           </p>
         )}
 
@@ -500,7 +504,7 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
             disabled={!hasEnoughPhotos}
             className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
           >
-            Continue ({selectedCount}/{minPhotos})
+            Continue {effectiveMinPhotos > 0 ? `(${selectedCount}/${effectiveMinPhotos})` : ''}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>

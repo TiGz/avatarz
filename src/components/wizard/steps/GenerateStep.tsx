@@ -5,7 +5,7 @@ import { WizardHook } from '@/hooks/useWizard'
 import { useQuota } from '@/hooks/useQuota'
 import { QuotaDisplay } from '@/components/ui/QuotaDisplay'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Sparkles, RefreshCw, Loader2, AlertCircle, Lock, Eye } from 'lucide-react'
+import { ArrowLeft, Sparkles, RefreshCw, Loader2, AlertCircle, Lock, Eye, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { StyleOption } from '@/types'
 import { GeneratePromptPreview } from '../GeneratePromptPreview'
@@ -101,6 +101,8 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
             keepBackground: !isCustomCategory ? state.keepBackground : undefined,
             ageModification: !isCustomCategory ? state.ageModification : undefined,
             customisationText: !isCustomCategory && state.customTextEnabled ? state.customText : undefined,
+            // Face preservation flag (for custom mode)
+            preserveFacialIdentity: isCustomCategory ? state.preserveFacialIdentity : undefined,
           }),
         }
       )
@@ -238,6 +240,7 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
 
   // Custom category - show photo preview with custom prompt input
   if (isCustomCategory) {
+    const hasPhotos = state.selectedPhotoIds.length > 0 || state.imageData
     const canGenerate = state.customStyle.trim().length > 0 &&
       !(quota?.remaining === 0 && !quota?.is_admin)
 
@@ -245,10 +248,12 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
       <div className="space-y-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-white">
-            Describe your avatar
+            Describe your {hasPhotos ? 'avatar' : 'image'}
           </h2>
           <p className="text-gray-400 mt-2">
-            Write a custom prompt to transform your photo
+            {hasPhotos
+              ? 'Write a custom prompt to transform your photo'
+              : 'Write a prompt to generate an image from scratch'}
           </p>
         </div>
 
@@ -259,16 +264,37 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
 
         {/* Photo preview and prompt input */}
         <div className="max-w-xl mx-auto space-y-6">
-          {/* Photo preview */}
-          <div className="flex justify-center">
-            <div className="w-48 h-48 rounded-2xl overflow-hidden ring-2 ring-purple-500/30">
-              <img
-                src={state.imageData!}
-                alt="Your photo"
-                className="w-full h-full object-cover"
-              />
+          {/* Photo preview - show if photos exist */}
+          {hasPhotos && (
+            <div className="flex justify-center gap-3 flex-wrap">
+              {state.selectedPhotos.length > 0 ? (
+                // Multi-photo preview
+                state.selectedPhotos.map((photo, idx) => (
+                  <div key={photo.id} className="relative">
+                    <div className="w-20 h-20 rounded-xl overflow-hidden ring-2 ring-purple-500/30">
+                      <img
+                        src={photo.thumbnailUrl || photo.url}
+                        alt={`Photo ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-xs font-bold text-white">
+                      {idx + 1}
+                    </div>
+                  </div>
+                ))
+              ) : state.imageData ? (
+                // Single photo preview
+                <div className="w-32 h-32 rounded-2xl overflow-hidden ring-2 ring-purple-500/30">
+                  <img
+                    src={state.imageData}
+                    alt="Your photo"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : null}
             </div>
-          </div>
+          )}
 
           {/* Custom prompt textarea */}
           <div className="space-y-3">
@@ -277,7 +303,9 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
               <span className="font-medium">Your custom prompt</span>
             </div>
             <textarea
-              placeholder="Describe how you want your avatar to look... Be creative! For example: 'Transform me into a steampunk inventor with brass goggles, Victorian attire, and clockwork accessories. Sepia-toned lighting with visible gears and steam in the background.'"
+              placeholder={hasPhotos
+                ? "Describe how you want your avatar to look... Be creative! For example: 'Transform me into a steampunk inventor with brass goggles, Victorian attire, and clockwork accessories. Sepia-toned lighting with visible gears and steam in the background.'"
+                : "Describe what you want to generate... For example: 'A majestic dragon perched on a mountain peak at sunset, with iridescent scales reflecting the golden light. Fantasy art style with dramatic lighting.'"}
               value={state.customStyle}
               onChange={(e) => updateState({ customStyle: e.target.value })}
               maxLength={3000}
@@ -293,6 +321,33 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
               </p>
             </div>
           </div>
+
+          {/* Face preservation toggle - only show when photos exist */}
+          {hasPhotos && (
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={state.preserveFacialIdentity}
+                    onChange={(e) => updateState({ preserveFacialIdentity: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-5 h-5 rounded border border-white/30 bg-white/5 peer-checked:bg-purple-500 peer-checked:border-purple-500 transition-colors flex items-center justify-center">
+                    {state.preserveFacialIdentity && <User className="w-3 h-3 text-white" />}
+                  </div>
+                </div>
+                <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
+                  Preserve facial identity
+                </span>
+              </label>
+              <p className="text-xs text-gray-500 mt-1.5 ml-8">
+                {state.preserveFacialIdentity
+                  ? "AI will try to maintain recognizable facial features"
+                  : "Full creative freedom - faces may change significantly"}
+              </p>
+            </div>
+          )}
 
           {/* Privacy toggle */}
           <div className="bg-white/5 border border-white/10 rounded-xl p-4">
@@ -336,7 +391,7 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
             disabled={!canGenerate}
           >
             <Sparkles className="mr-2 h-5 w-5" />
-            Generate Avatar
+            Generate {hasPhotos ? 'Avatar' : 'Image'}
           </Button>
         </div>
       </div>
