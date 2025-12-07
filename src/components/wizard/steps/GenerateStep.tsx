@@ -5,10 +5,11 @@ import { WizardHook } from '@/hooks/useWizard'
 import { useQuota } from '@/hooks/useQuota'
 import { QuotaDisplay } from '@/components/ui/QuotaDisplay'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Sparkles, RefreshCw, Loader2, AlertCircle, Lock, Eye, User } from 'lucide-react'
+import { ArrowLeft, Sparkles, RefreshCw, Loader2, AlertCircle, Lock, Eye, User, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { StyleOption } from '@/types'
 import { GeneratePromptPreview } from '../GeneratePromptPreview'
+import { StyleBrowserModal } from '../StyleBrowserModal'
 
 interface GenerateStepProps {
   wizard: WizardHook
@@ -21,6 +22,7 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
   const [status, setStatus] = useState<'idle' | 'generating' | 'error' | 'limit_reached'>('idle')
   const [progress, setProgress] = useState(0)
   const [showPromptPreview, setShowPromptPreview] = useState(false)
+  const [showStyleBrowser, setShowStyleBrowser] = useState(false)
   const [hasAutoStarted, setHasAutoStarted] = useState(false)
 
   // Check if at limit
@@ -298,9 +300,20 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
 
           {/* Custom prompt textarea */}
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-purple-400">
-              <Sparkles className="h-5 w-5" />
-              <span className="font-medium">Your custom prompt</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-purple-400">
+                <Sparkles className="h-5 w-5" />
+                <span className="font-medium">Your custom prompt</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowStyleBrowser(true)}
+                className="text-gray-400 hover:text-white hover:bg-white/10"
+              >
+                <Search className="h-4 w-4 mr-1" />
+                Browse Styles
+              </Button>
             </div>
             <textarea
               placeholder={hasPhotos
@@ -394,6 +407,17 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
             Generate {hasPhotos ? 'Avatar' : 'Image'}
           </Button>
         </div>
+
+        {/* Style Browser Modal */}
+        <StyleBrowserModal
+          isOpen={showStyleBrowser}
+          onClose={() => setShowStyleBrowser(false)}
+          onSelectPrompt={(prompt, styleName) => {
+            updateState({ customStyle: prompt })
+            toast.success(`Loaded "${styleName}" prompt - feel free to customize it!`)
+          }}
+          currentPrompt={state.customStyle}
+        />
       </div>
     )
   }
