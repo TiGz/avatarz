@@ -442,37 +442,37 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
 
         {/* Add more photos options */}
         {canAddMore && (
-          <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 max-w-lg mx-auto px-2">
             <button
               onClick={() => setMode('webcam')}
-              className="aspect-square rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-4"
+              className="aspect-square rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-2 sm:gap-3 p-2 sm:p-4"
             >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                <Camera className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                <Camera className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <span className="text-white font-medium text-sm">Selfie</span>
+              <span className="text-white font-medium text-xs sm:text-sm">Selfie</span>
             </button>
 
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="aspect-square rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-4"
+              className="aspect-square rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-2 sm:gap-3 p-2 sm:p-4"
             >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                <Upload className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                <Upload className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <span className="text-white font-medium text-sm">Upload</span>
+              <span className="text-white font-medium text-xs sm:text-sm">Upload</span>
             </button>
 
             <button
               onClick={() => setMode('library')}
-              className="aspect-square rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-4 relative"
+              className="aspect-square rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-2 sm:gap-3 p-2 sm:p-4 relative"
             >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
-                <FolderOpen className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+                <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <span className="text-white font-medium text-sm">Library</span>
+              <span className="text-white font-medium text-xs sm:text-sm">Library</span>
               {photos.length > 0 && (
-                <span className="absolute top-2 right-2 bg-purple-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-purple-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {photos.length}
                 </span>
               )}
@@ -525,37 +525,37 @@ export function CaptureStep({ wizard, minPhotos = 1, maxPhotos = 1 }: CaptureSte
         Take a selfie, upload an image, or choose from your library
       </p>
 
-      <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 max-w-lg mx-auto px-2">
         <button
           onClick={() => setMode('webcam')}
-          className="aspect-square rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-4"
+          className="aspect-square rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-2 sm:gap-3 p-2 sm:p-4"
         >
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-            <Camera className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+            <Camera className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </div>
-          <span className="text-white font-medium text-sm">Selfie</span>
+          <span className="text-white font-medium text-xs sm:text-sm">Selfie</span>
         </button>
 
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="aspect-square rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-4"
+          className="aspect-square rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-2 sm:gap-3 p-2 sm:p-4"
         >
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-            <Upload className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+            <Upload className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </div>
-          <span className="text-white font-medium text-sm">Upload</span>
+          <span className="text-white font-medium text-xs sm:text-sm">Upload</span>
         </button>
 
         <button
           onClick={() => setMode('library')}
-          className="aspect-square rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 p-4 relative"
+          className="aspect-square rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-2 sm:gap-3 p-2 sm:p-4 relative"
         >
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
-            <FolderOpen className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+            <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </div>
-          <span className="text-white font-medium text-sm">Library</span>
+          <span className="text-white font-medium text-xs sm:text-sm">Library</span>
           {photos.length > 0 && (
-            <span className="absolute top-2 right-2 bg-purple-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+            <span className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-purple-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
               {photos.length}
             </span>
           )}

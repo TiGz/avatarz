@@ -42,13 +42,13 @@ export function LegacyOptionsStep({ wizard, options }: LegacyOptionsStepProps) {
           <User className="w-4 h-4" />
           Body Crop
         </h3>
-        <div className="flex justify-center gap-3 flex-wrap">
+        <div className="grid grid-cols-4 gap-2 sm:gap-3">
           {cropTypes.map((crop) => (
             <button
               key={crop.id}
               onClick={() => updateState({ cropType: crop.id })}
               className={`
-                p-3 rounded-xl border-2 transition-all text-center w-24
+                p-2 sm:p-3 rounded-xl border-2 transition-all text-center
                 ${state.cropType === crop.id
                   ? 'bg-gradient-to-br from-purple-500/30 to-pink-500/30 border-purple-400 ring-2 ring-purple-400/50'
                   : 'bg-white/5 border-white/10 hover:border-white/30 hover:bg-white/10'
@@ -66,7 +66,7 @@ export function LegacyOptionsStep({ wizard, options }: LegacyOptionsStepProps) {
                   {cropIcons[crop.id] || <User className="w-6 h-6 text-white" />}
                 </div>
               </div>
-              <div className="text-white text-sm font-medium">{crop.label}</div>
+              <div className="text-white text-[10px] sm:text-sm font-medium">{crop.label}</div>
             </button>
           ))}
         </div>
