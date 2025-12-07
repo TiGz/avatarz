@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, PanInfo } from 'framer-motion'
 import { Generation } from '@/types'
-import { X, Download, Calendar, Palette, Crop, Type, Loader2, Trash2, Share2, Copy, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { X, Download, Calendar, Palette, Crop, Type, Loader2, Trash2, Share2, Copy, ChevronDown, ChevronLeft, ChevronRight, Monitor } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -42,6 +43,7 @@ export function AvatarModal({
   currentIndex,
   totalCount
 }: AvatarModalProps) {
+  const navigate = useNavigate()
   const [fullLoaded, setFullLoaded] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
@@ -141,6 +143,12 @@ export function AvatarModal({
         toast.error('Failed to share')
       }
     }
+  }
+
+  const handleCreateWallpaper = () => {
+    if (!generation) return
+    onClose()
+    navigate(`/wallpaper/${generation.id}`)
   }
 
   if (!generation) return null
@@ -348,6 +356,14 @@ export function AvatarModal({
                 >
                   <Download className="mr-2 h-4 w-4" />
                   Download
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleCreateWallpaper}
+                  className="flex-1 sm:w-full border-white/20 text-white bg-white/5 hover:bg-white/10"
+                >
+                  <Monitor className="mr-2 h-4 w-4" />
+                  Wallpaper
                 </Button>
                 <div className="flex-1 sm:w-full flex gap-2">
                   <Button
