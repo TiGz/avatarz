@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useCallback } from 'react'
+import { motion, AnimatePresence, PanInfo } from 'framer-motion'
 import { Generation } from '@/types'
-import { X, Download, Calendar, Palette, Crop, Type, Loader2, Trash2, Share2, Copy } from 'lucide-react'
+import { X, Download, Calendar, Palette, Crop, Type, Loader2, Trash2, Share2, Copy, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,9 +21,27 @@ interface AvatarModalProps {
   onDownload: (generation: Generation) => void
   onDelete?: (generation: Generation) => Promise<boolean>
   deleting?: boolean
+  onNext?: () => void
+  onPrev?: () => void
+  hasNext?: boolean
+  hasPrev?: boolean
+  currentIndex?: number
+  totalCount?: number
 }
 
-export function AvatarModal({ generation, onClose, onDownload, onDelete, deleting = false }: AvatarModalProps) {
+export function AvatarModal({
+  generation,
+  onClose,
+  onDownload,
+  onDelete,
+  deleting = false,
+  onNext,
+  onPrev,
+  hasNext = false,
+  hasPrev = false,
+  currentIndex,
+  totalCount
+}: AvatarModalProps) {
   const [fullLoaded, setFullLoaded] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
@@ -35,6 +53,46 @@ export function AvatarModal({ generation, onClose, onDownload, onDelete, deletin
       onClose()
     }
   }
+
+  // Swipe gesture handling
+  const handleDragEnd = useCallback((_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    const threshold = 50
+    const velocityThreshold = 300
+
+    // Swipe down to close
+    if (info.offset.y > threshold || info.velocity.y > velocityThreshold) {
+      onClose()
+      return
+    }
+
+    // Swipe left to go next
+    if ((info.offset.x < -threshold || info.velocity.x < -velocityThreshold) && hasNext && onNext) {
+      onNext()
+      return
+    }
+
+    // Swipe right to go previous
+    if ((info.offset.x > threshold || info.velocity.x > velocityThreshold) && hasPrev && onPrev) {
+      onPrev()
+      return
+    }
+  }, [onClose, onNext, onPrev, hasNext, hasPrev])
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      } else if (e.key === 'ArrowLeft' && hasPrev && onPrev) {
+        onPrev()
+      } else if (e.key === 'ArrowRight' && hasNext && onNext) {
+        onNext()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose, onNext, onPrev, hasNext, hasPrev])
 
   // Reset loading state when generation changes
   useEffect(() => {
@@ -112,23 +170,86 @@ export function AvatarModal({ generation, onClose, onDownload, onDelete, deletin
         onClick={onClose}
       >
         <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          className="relative w-full h-full sm:h-auto sm:max-w-3xl bg-gray-900 sm:rounded-2xl overflow-hidden overflow-y-auto"
+          initial={{ scale: 0.9, opacity: 0, y: 50 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.9, opacity: 0, y: 50 }}
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={0.2}
+          onDragEnd={handleDragEnd}
+          className="relative w-full h-full sm:h-auto sm:max-w-3xl bg-gray-900 sm:rounded-2xl overflow-hidden overflow-y-auto touch-pan-x"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Close button */}
+          {/* Mobile header with back button and counter */}
+          <div className="sm:hidden flex items-center justify-between p-3 bg-black/30 backdrop-blur-sm sticky top-0 z-20">
+            <button
+              onClick={onClose}
+              className="flex items-center gap-1 text-white/90 hover:text-white py-1 px-2 -ml-2 rounded-lg hover:bg-white/10 transition-colors"
+            >
+              <ChevronDown className="h-5 w-5" />
+              <span className="text-sm font-medium">Close</span>
+            </button>
+
+            {currentIndex !== undefined && totalCount !== undefined && (
+              <span className="text-white/70 text-sm">
+                {currentIndex + 1} / {totalCount}
+              </span>
+            )}
+
+            {/* Navigation arrows for mobile */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={onPrev}
+                disabled={!hasPrev}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white/90 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                onClick={onNext}
+                disabled={!hasNext}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white/90 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Desktop close button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors"
+            className="hidden sm:flex absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 items-center justify-center text-white transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
 
+          {/* Desktop navigation arrows */}
+          {hasPrev && onPrev && (
+            <button
+              onClick={onPrev}
+              className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 items-center justify-center text-white transition-colors"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+          )}
+          {hasNext && onNext && (
+            <button
+              onClick={onNext}
+              className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 items-center justify-center text-white transition-colors"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
+          )}
+
           <div className="flex flex-col sm:flex-row">
             {/* Image - progressive loading from thumbnail to full resolution */}
-            <div className="w-full sm:w-2/3 aspect-square bg-black relative overflow-hidden flex-shrink-0">
+            <motion.div
+              className="w-full sm:w-2/3 aspect-square bg-black relative overflow-hidden flex-shrink-0"
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.3}
+              onDragEnd={handleDragEnd}
+            >
               {/* Show thumbnail immediately as placeholder */}
               {generation.thumbnailUrl && (
                 <img
@@ -162,7 +283,7 @@ export function AvatarModal({ generation, onClose, onDownload, onDelete, deletin
                   <Loader2 className="h-4 w-4 animate-spin text-white" />
                 </div>
               )}
-            </div>
+            </motion.div>
 
             {/* Details */}
             <div className="w-full sm:w-1/3 p-4 sm:p-6 space-y-3 sm:space-y-4">

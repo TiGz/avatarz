@@ -85,6 +85,29 @@ export function GalleryPage() {
     [ensureFullUrl]
   )
 
+  // Get current index for navigation
+  const selectedIndex = selectedGenerationId
+    ? generations.findIndex((g) => g.id === selectedGenerationId)
+    : -1
+  const hasNext = selectedIndex >= 0 && selectedIndex < generations.length - 1
+  const hasPrev = selectedIndex > 0
+
+  const handleNext = useCallback(async () => {
+    if (hasNext) {
+      const nextGeneration = generations[selectedIndex + 1]
+      setSelectedGenerationId(nextGeneration.id)
+      await ensureFullUrl(nextGeneration)
+    }
+  }, [hasNext, selectedIndex, generations, ensureFullUrl])
+
+  const handlePrev = useCallback(async () => {
+    if (hasPrev) {
+      const prevGeneration = generations[selectedIndex - 1]
+      setSelectedGenerationId(prevGeneration.id)
+      await ensureFullUrl(prevGeneration)
+    }
+  }, [hasPrev, selectedIndex, generations, ensureFullUrl])
+
   const handleDeleteFromCard = (generation: Generation) => {
     setDeleteTarget(generation)
   }
@@ -221,6 +244,12 @@ export function GalleryPage() {
           onDownload={downloadAvatar}
           onDelete={handleDeleteFromModal}
           deleting={deleting}
+          onNext={handleNext}
+          onPrev={handlePrev}
+          hasNext={hasNext}
+          hasPrev={hasPrev}
+          currentIndex={selectedIndex}
+          totalCount={generations.length}
         />
       )}
 
