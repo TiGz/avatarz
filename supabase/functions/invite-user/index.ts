@@ -70,11 +70,11 @@ serve(async (req) => {
       )
     }
 
-    // Validate tier (default to premium, only allow premium or standard)
+    // Validate tier (default to premium, allow premium, standard, or private)
     const userTier = tier || 'premium'
-    if (!['premium', 'standard'].includes(userTier)) {
+    if (!['premium', 'standard', 'private'].includes(userTier)) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Invalid tier. Must be premium or standard.' }),
+        JSON.stringify({ success: false, error: 'Invalid tier. Must be premium, standard, or private.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }

@@ -223,6 +223,15 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Check if user is on Private tier (always force is_public=false)
+    const { data: userProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('tier_id')
+      .eq('id', user.id)
+      .single()
+
+    const canMakePublic = userProfile?.tier_id !== 'private'
+
     // Check daily generation limit
     const { data: quotaData, error: quotaError } = await supabase.rpc('get_user_quota')
     if (quotaError) {
@@ -475,9 +484,12 @@ CRITICAL: This is an existing AI-generated avatar image. Extend the canvas to fi
       console.error('Thumbnail generation failed:', thumbError)
     }
 
-    // Generate share URL
+    // Wallpapers are public by default, but Private tier users always have is_public=false
+    const isPublic = canMakePublic
+
+    // Generate share URL only for public wallpapers
     let shareUrl: string | null = null
-    if (thumbnailFilename) {
+    if (thumbnailFilename && isPublic) {
       const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
       shareUrl = `${supabaseUrl}/storage/v1/object/public/avatar-thumbnails/${thumbnailFilename}`
     }
@@ -500,7 +512,7 @@ CRITICAL: This is an existing AI-generated avatar image. Extend the canvas to fi
         completion_tokens: completionTokens,
         total_tokens: totalTokens,
         cost_usd: cost,
-        is_public: true,
+        is_public: isPublic,
         share_url: shareUrl,
       })
       .select()

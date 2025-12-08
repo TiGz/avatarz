@@ -2,14 +2,15 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Send, Mail, CheckCircle, AlertCircle, Star, User } from 'lucide-react'
+import { Loader2, Send, Mail, CheckCircle, AlertCircle, Star, User, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 
-type InviteTier = 'premium' | 'standard'
+type InviteTier = 'premium' | 'standard' | 'private'
 
 const tierConfig: Record<InviteTier, { label: string; icon: React.ReactNode }> = {
   premium: { label: 'Premium', icon: <Star className="h-4 w-4" /> },
   standard: { label: 'Standard', icon: <User className="h-4 w-4" /> },
+  private: { label: 'Private', icon: <Lock className="h-4 w-4" /> },
 }
 
 export function InviteUser() {
@@ -104,24 +105,29 @@ export function InviteUser() {
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-400">Invite as:</span>
           <div className="flex gap-1">
-            {(['premium', 'standard'] as InviteTier[]).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTier(t)}
-                disabled={sending}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  tier === t
-                    ? t === 'premium'
-                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                      : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
-                    : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
-                }`}
-              >
-                {tierConfig[t].icon}
-                {tierConfig[t].label}
-              </button>
-            ))}
+            {(['premium', 'standard', 'private'] as InviteTier[]).map((t) => {
+              const selectedColors = {
+                premium: 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
+                standard: 'bg-gray-500/20 text-gray-300 border border-gray-500/30',
+                private: 'bg-orange-500/20 text-orange-300 border border-orange-500/30',
+              }
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTier(t)}
+                  disabled={sending}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    tier === t
+                      ? selectedColors[t]
+                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  {tierConfig[t].icon}
+                  {tierConfig[t].label}
+                </button>
+              )
+            })}
           </div>
         </div>
       </form>

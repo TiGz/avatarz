@@ -205,7 +205,7 @@ export interface InviteCode {
 }
 
 // User tier types
-export type UserTier = 'admin' | 'premium' | 'standard'
+export type UserTier = 'admin' | 'premium' | 'standard' | 'private'
 
 export interface UserTierInfo {
   id: string

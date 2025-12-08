@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
-import { Loader2, RefreshCw, Crown, User, Star, ChevronDown } from 'lucide-react'
+import { Loader2, RefreshCw, Crown, User, Star, ChevronDown, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { UserStats as UserStatsType, UserTier } from '@/types'
 import { useAuth } from '@/hooks/useAuth'
@@ -10,6 +10,7 @@ const tierConfig: Record<UserTier, { label: string; color: string; icon: React.R
   admin: { label: 'Admin', color: 'text-amber-400', icon: <Crown className="h-3 w-3" /> },
   premium: { label: 'Premium', color: 'text-purple-400', icon: <Star className="h-3 w-3" /> },
   standard: { label: 'Standard', color: 'text-gray-400', icon: <User className="h-3 w-3" /> },
+  private: { label: 'Private', color: 'text-orange-400', icon: <Lock className="h-3 w-3" /> },
 }
 
 export function UserStats() {

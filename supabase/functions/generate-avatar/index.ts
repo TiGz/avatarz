@@ -334,12 +334,13 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
 
   const req = payload as GenerateAvatarRequest
 
-  // Validate photo input - must have either imageData OR photoIds (unless using customStyle for pure generation)
+  // Validate photo input - must have either imageData OR photoIds (unless using customStyle for pure generation or edit mode)
   const hasImageData = req.imageData && typeof req.imageData === 'string'
   const hasPhotoIds = req.photoIds && Array.isArray(req.photoIds) && req.photoIds.length > 0
   const isCustomWithNoPhotos = req.customStyle && !hasImageData && !hasPhotoIds
+  const isEditMode = req.editGenerationId && req.editPrompt  // Edit mode uses thought signatures, no new photos needed
 
-  if (!hasImageData && !hasPhotoIds && !isCustomWithNoPhotos) {
+  if (!hasImageData && !hasPhotoIds && !isCustomWithNoPhotos && !isEditMode) {
     throw new Error('Either imageData or photoIds is required (unless using custom prompt without photos)')
   }
 
@@ -772,7 +773,9 @@ Deno.serve(async (req) => {
       imageDataArray.push(image)
     }
 
-    if (imageDataArray.length === 0 && !validatedReq.customStyle) {
+    // Edit mode doesn't need images - it uses thought signatures from parent generation
+    const isEditModeRequest = validatedReq.editGenerationId && validatedReq.editPrompt
+    if (imageDataArray.length === 0 && !validatedReq.customStyle && !isEditModeRequest) {
       throw new Error('No images provided')
     }
 
@@ -1288,16 +1291,22 @@ Deno.serve(async (req) => {
       // Continue without thumbnail - don't fail the whole request
     }
 
+    // Check if user is on Private tier (always force is_public=false)
+    const { data: userProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('tier_id')
+      .eq('id', user.id)
+      .single()
+
+    const canMakePublic = userProfile?.tier_id !== 'private'
+    const isPublic = canMakePublic ? (validatedReq.isPublic !== false) : false
+
     // Generate public share URL for public avatars (bucket is now public)
     let shareUrl: string | null = null
-    if (thumbnailFilename && validatedReq.isPublic !== false) {
+    if (thumbnailFilename && isPublic) {
       const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
       shareUrl = `${supabaseUrl}/storage/v1/object/public/avatar-thumbnails/${thumbnailFilename}`
     }
-
-    // Create generation record in database
-    // isPublic defaults to true if not specified
-    const isPublic = validatedReq.isPublic !== false
 
     // Build metadata for banner formats
     const metadata = bannerConfig ? {
@@ -1307,13 +1316,14 @@ Deno.serve(async (req) => {
       height: bannerConfig.height,
     } : null
 
+    // Create generation record in database
     const { data: generation, error: dbError } = await supabaseAdmin
       .from('generations')
       .insert({
         user_id: user.id,
         input_photo_id: validatedReq.inputPhotoId || null,
-        photo_ids: validatedReq.photoIds || null,  // NEW: array of photo IDs
-        input_values: validatedReq.inputValues || null,  // NEW: dynamic input values
+        photo_ids: validatedReq.photoIds || null,
+        input_values: validatedReq.inputValues || null,
         output_storage_path: avatarFilename,
         thumbnail_storage_path: thumbnailFilename,
         style: validatedReq.style,
