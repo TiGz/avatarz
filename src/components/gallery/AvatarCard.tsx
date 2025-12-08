@@ -4,6 +4,7 @@ import { Download, Loader2, Eye, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { BANNER_FORMATS, type BannerFormat } from '@/lib/bannerFormats'
+import { getAspectRatioCss } from '@/lib/aspectRatio'
 
 interface AvatarCardProps {
   generation: Generation
@@ -27,12 +28,15 @@ export function AvatarCard({ generation, index, onView, onDownload, onDelete }: 
       onClick={() => onView(generation)}
     >
       {/* Image - uses thumbnail for faster loading */}
-      <div className="aspect-square relative">
+      <div
+        className="relative bg-black/50"
+        style={{ aspectRatio: getAspectRatioCss(generation.metadata?.original_ratio) }}
+      >
         {(generation.thumbnailUrl || generation.url) ? (
           <img
             src={generation.thumbnailUrl || generation.url}
             alt={`Avatar - ${generation.style}`}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
             loading="lazy"
           />
         ) : (

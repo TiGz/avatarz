@@ -5,6 +5,7 @@ import { Generation } from '@/types'
 import { X, Download, Calendar, Palette, Crop, Type, Loader2, Trash2, Share2, ChevronDown, ChevronLeft, ChevronRight, Monitor, ImagePlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { getAspectRatioCss } from '@/lib/aspectRatio'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -268,7 +269,8 @@ export function AvatarModal({
           <div className="flex flex-col sm:flex-row min-h-0">
             {/* Image - progressive loading from thumbnail to full resolution */}
             <motion.div
-              className="w-full sm:w-2/3 bg-black relative overflow-hidden flex-shrink-0 min-h-[200px] max-h-[50vh] sm:max-h-none sm:aspect-square flex items-center justify-center"
+              className="w-full sm:w-2/3 bg-black relative overflow-hidden flex-shrink-0 min-h-[200px] max-h-[50vh] sm:max-h-none flex items-center justify-center"
+              style={{ aspectRatio: getAspectRatioCss(generation.metadata?.original_ratio) }}
               drag="x"
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.3}

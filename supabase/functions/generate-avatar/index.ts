@@ -481,6 +481,22 @@ async function generateThumbnail(
   }
 }
 
+// Calculate thumbnail dimensions that fit within MAX_SIZE while preserving aspect ratio
+function calculateThumbnailDimensions(
+  originalWidth: number,
+  originalHeight: number
+): { width: number; height: number } {
+  const MAX_SIZE = 300
+  const ratio = originalWidth / originalHeight
+
+  if (ratio >= 1) {
+    // Landscape or square: constrain width
+    return { width: MAX_SIZE, height: Math.round(MAX_SIZE / ratio) }
+  }
+  // Portrait: constrain height
+  return { width: Math.round(MAX_SIZE * ratio), height: MAX_SIZE }
+}
+
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
@@ -1083,11 +1099,15 @@ Deno.serve(async (req) => {
       throw new Error('Failed to save avatar')
     }
 
-    // Generate and upload 300x300 JPEG thumbnail
+    // Generate and upload thumbnail with correct aspect ratio
     let thumbnailFilename: string | null = null
     try {
       console.log('Generating thumbnail...')
-      const thumbnailBuffer = await generateThumbnail(avatarBuffer, 300, 300, 98)
+      // Decode image to get actual dimensions for aspect-ratio-aware thumbnail
+      const decodedImage = await Image.decode(avatarBuffer)
+      const { width: thumbW, height: thumbH } = calculateThumbnailDimensions(decodedImage.width, decodedImage.height)
+      console.log(`Original: ${decodedImage.width}x${decodedImage.height}, Thumbnail: ${thumbW}x${thumbH}`)
+      const thumbnailBuffer = await generateThumbnail(avatarBuffer, thumbW, thumbH, 98)
       thumbnailFilename = `${user.id}/${Date.now()}_${crypto.randomUUID()}_thumb.jpg`
 
       const { error: thumbUploadError } = await supabaseAdmin.storage
