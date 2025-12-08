@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,15 @@ export function LoginForm() {
   const [inviteCode, setInviteCode] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('login')
   const [status, setStatus] = useState<LoginStatus>('idle')
+
+  // Check for expired magic link flag (set by useAuth when invite link is reused)
+  useEffect(() => {
+    const linkExpired = sessionStorage.getItem('auth-link-expired')
+    if (linkExpired) {
+      sessionStorage.removeItem('auth-link-expired')
+      toast.info('Your invite link has expired. Enter your email below to log in.')
+    }
+  }, [])
 
   const handleRequestCode = async (e: React.FormEvent) => {
     e.preventDefault()

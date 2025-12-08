@@ -22,9 +22,11 @@ export function useAuth() {
     let mounted = true
 
     const initAuth = async () => {
+      // Track if we're processing magic link tokens (for error handling)
+      const pendingTokens = sessionStorage.getItem('pending-auth-tokens')
+
       try {
         // Check for pending auth tokens from magic link redirect (see index.html)
-        const pendingTokens = sessionStorage.getItem('pending-auth-tokens')
         if (pendingTokens) {
           console.log('[Auth] Found pending auth tokens from magic link')
           sessionStorage.removeItem('pending-auth-tokens')
@@ -70,6 +72,13 @@ export function useAuth() {
         })
       } catch (err) {
         console.error('[Auth] Error during auth init:', err)
+
+        // If we had pending tokens (from invite magic link) but session failed,
+        // the link is expired/used - store flag for LoginForm to show helpful message
+        if (pendingTokens) {
+          sessionStorage.setItem('auth-link-expired', 'true')
+        }
+
         if (!mounted) return
         setState(prev => ({
           ...prev,
