@@ -2,6 +2,8 @@ import { motion } from 'framer-motion'
 import { Generation } from '@/types'
 import { Download, Loader2, Eye, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { BANNER_FORMATS, type BannerFormat } from '@/lib/bannerFormats'
 
 interface AvatarCardProps {
   generation: Generation
@@ -25,7 +27,7 @@ export function AvatarCard({ generation, index, onView, onDownload, onDelete }: 
       onClick={() => onView(generation)}
     >
       {/* Image - uses thumbnail for faster loading */}
-      <div className="aspect-square">
+      <div className="aspect-square relative">
         {(generation.thumbnailUrl || generation.url) ? (
           <img
             src={generation.thumbnailUrl || generation.url}
@@ -37,6 +39,12 @@ export function AvatarCard({ generation, index, onView, onDownload, onDelete }: 
           <div className="w-full h-full flex items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
           </div>
+        )}
+        {/* Banner format badge */}
+        {generation.metadata?.banner_format && BANNER_FORMATS[generation.metadata.banner_format as BannerFormat] && (
+          <Badge className="absolute top-2 left-2 bg-purple-600/90 text-white text-xs">
+            {BANNER_FORMATS[generation.metadata.banner_format as BannerFormat].label}
+          </Badge>
         )}
       </div>
 

@@ -29,7 +29,7 @@ const createInitialState = (options?: AvatarOptions | null): WizardState => ({
   isPublic: true,
   shareUrl: null,
   // Generation options (standard mode only - when use_legacy_options=true)
-  keepBackground: false,
+  backgroundType: 'remove',
   ageModification: 'normal',
   customTextEnabled: false,
   customText: '',

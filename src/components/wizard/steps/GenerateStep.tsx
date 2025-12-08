@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { StyleOption } from '@/types'
 import { GeneratePromptPreview } from '../GeneratePromptPreview'
 import { StyleBrowserModal } from '../StyleBrowserModal'
+import { isBannerFormat, BANNER_FORMATS } from '@/lib/bannerFormats'
 
 interface GenerateStepProps {
   wizard: WizardHook
@@ -100,7 +101,7 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
             // Dynamic input values for parameterized styles
             inputValues: Object.keys(state.inputValues).length > 0 ? state.inputValues : undefined,
             // New generation options (only for standard mode)
-            keepBackground: !isCustomCategory ? state.keepBackground : undefined,
+            backgroundType: !isCustomCategory ? state.backgroundType : undefined,
             ageModification: !isCustomCategory ? state.ageModification : undefined,
             customisationText: !isCustomCategory && state.customTextEnabled ? state.customText : undefined,
             // Face preservation flag (for custom mode)
@@ -348,7 +349,15 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
               <label className="block text-xs text-gray-500 mb-1.5">Aspect Ratio</label>
               <select
                 value={state.aspectRatio}
-                onChange={(e) => updateState({ aspectRatio: e.target.value as typeof state.aspectRatio })}
+                onChange={(e) => {
+                  const newRatio = e.target.value as typeof state.aspectRatio
+                  // Auto-set 2K when banner format selected
+                  if (isBannerFormat(newRatio)) {
+                    updateState({ aspectRatio: newRatio, imageSize: '2K' })
+                  } else {
+                    updateState({ aspectRatio: newRatio })
+                  }
+                }}
                 className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-purple-400 focus:outline-none cursor-pointer"
               >
                 <option value="1:1">1:1 (Square)</option>
@@ -356,6 +365,11 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
                 <option value="9:16">9:16 (Portrait)</option>
                 <option value="4:3">4:3 (Standard)</option>
                 <option value="3:4">3:4 (Portrait)</option>
+                <option disabled className="text-gray-600">──────────</option>
+                <option value="linkedin">LinkedIn ({BANNER_FORMATS.linkedin.width}×{BANNER_FORMATS.linkedin.height})</option>
+                <option value="twitter">X / Twitter ({BANNER_FORMATS.twitter.width}×{BANNER_FORMATS.twitter.height})</option>
+                <option value="facebook">Facebook ({BANNER_FORMATS.facebook.width}×{BANNER_FORMATS.facebook.height})</option>
+                <option value="youtube">YouTube ({BANNER_FORMATS.youtube.width}×{BANNER_FORMATS.youtube.height})</option>
               </select>
             </div>
             <div className="flex-1">
@@ -363,11 +377,15 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
               <select
                 value={state.imageSize}
                 onChange={(e) => updateState({ imageSize: e.target.value as typeof state.imageSize })}
-                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-purple-400 focus:outline-none cursor-pointer"
+                disabled={isBannerFormat(state.aspectRatio)}
+                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-purple-400 focus:outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="1K">1K</option>
                 <option value="2K">2K</option>
               </select>
+              {isBannerFormat(state.aspectRatio) && (
+                <p className="text-xs text-gray-500 mt-1">2K required for banners</p>
+              )}
             </div>
           </div>
 

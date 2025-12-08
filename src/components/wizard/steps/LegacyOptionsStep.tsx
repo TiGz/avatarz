@@ -100,17 +100,33 @@ export function LegacyOptionsStep({ wizard, options }: LegacyOptionsStepProps) {
 
       {/* Background Section */}
       <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-        <div className="flex items-center gap-3">
-          <Checkbox
-            id="keepBackground"
-            checked={state.keepBackground}
-            onCheckedChange={(checked) => updateState({ keepBackground: !!checked })}
-            className="border-white/30 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500"
-          />
-          <label htmlFor="keepBackground" className="flex items-center gap-2 cursor-pointer">
-            <Palette className="w-4 h-4 text-gray-400" />
-            <span className="text-white">Keep original background</span>
-          </label>
+        <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+          <Palette className="w-4 h-4" />
+          Background
+        </h3>
+        <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+          {(['remove', 'white', 'keep'] as const).map((bg) => {
+            const labels = {
+              remove: 'Remove Background',
+              white: 'White Background',
+              keep: 'Keep Original',
+            }
+            return (
+              <button
+                key={bg}
+                onClick={() => updateState({ backgroundType: bg })}
+                className={`
+                  px-3 sm:px-4 py-2 rounded-xl border-2 transition-all text-center
+                  ${state.backgroundType === bg
+                    ? 'bg-gradient-to-br from-purple-500/30 to-pink-500/30 border-purple-400 ring-2 ring-purple-400/50'
+                    : 'bg-white/5 border-white/10 hover:border-white/30 hover:bg-white/10'
+                  }
+                `}
+              >
+                <div className="text-white text-sm font-medium">{labels[bg]}</div>
+              </button>
+            )
+          })}
         </div>
       </div>
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, PanInfo } from 'framer-motion'
 import { Generation } from '@/types'
-import { X, Download, Calendar, Palette, Crop, Type, Loader2, Trash2, Share2, ChevronDown, ChevronLeft, ChevronRight, Monitor } from 'lucide-react'
+import { X, Download, Calendar, Palette, Crop, Type, Loader2, Trash2, Share2, ChevronDown, ChevronLeft, ChevronRight, Monitor, ImagePlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,6 +21,7 @@ interface AvatarModalProps {
   onClose: () => void
   onDownload: (generation: Generation) => void
   onDelete?: (generation: Generation) => Promise<boolean>
+  onCopyToPhotos?: (generation: Generation) => Promise<boolean>
   deleting?: boolean
   onNext?: () => void
   onPrev?: () => void
@@ -35,6 +36,7 @@ export function AvatarModal({
   onClose,
   onDownload,
   onDelete,
+  onCopyToPhotos,
   deleting = false,
   onNext,
   onPrev,
@@ -46,6 +48,7 @@ export function AvatarModal({
   const navigate = useNavigate()
   const [fullLoaded, setFullLoaded] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isCopying, setIsCopying] = useState(false)
 
   const handleDelete = async () => {
     if (!generation || !onDelete) return
@@ -149,6 +152,19 @@ export function AvatarModal({
     if (!generation) return
     onClose()
     navigate(`/wallpaper/${generation.id}`)
+  }
+
+  const handleCopyToPhotos = async () => {
+    if (!generation || !onCopyToPhotos) return
+    setIsCopying(true)
+    try {
+      const success = await onCopyToPhotos(generation)
+      if (success) {
+        toast.success('Avatar copied to photo library')
+      }
+    } finally {
+      setIsCopying(false)
+    }
   }
 
   if (!generation) return null
@@ -379,6 +395,19 @@ export function AvatarModal({
                     <span className="text-xs sm:text-sm">Share</span>
                   </span>
                 </Button>
+                {onCopyToPhotos && (
+                  <Button
+                    variant="outline"
+                    onClick={handleCopyToPhotos}
+                    disabled={isCopying}
+                    className="border-white/20 text-white bg-white/5 hover:bg-white/10 h-auto py-2"
+                  >
+                    <span className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+                      {isCopying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                      <span className="text-xs sm:text-sm">{isCopying ? 'Copying...' : 'Copy to Photos'}</span>
+                    </span>
+                  </Button>
+                )}
                 {onDelete && (
                   <Button
                     variant="outline"

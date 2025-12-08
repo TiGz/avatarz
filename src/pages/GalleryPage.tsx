@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { useGenerations } from '@/hooks/useGenerations'
+import { usePhotos } from '@/hooks/usePhotos'
 import { AvatarCard } from '@/components/gallery/AvatarCard'
 import { AvatarModal } from '@/components/gallery/AvatarModal'
 import { Generation } from '@/types'
@@ -33,6 +34,7 @@ export function GalleryPage() {
     ensureFullUrl,
     refresh,
   } = useGenerations()
+  const { copyAvatarToPhotos } = usePhotos()
   const [selectedGenerationId, setSelectedGenerationId] = useState<string | null>(null)
 
   // Get the selected generation from the list (so it updates when URL is fetched)
@@ -120,6 +122,11 @@ export function GalleryPage() {
       setSelectedGenerationId(null)
     }
     return success
+  }
+
+  const handleCopyToPhotos = async (generation: Generation): Promise<boolean> => {
+    const photo = await copyAvatarToPhotos(generation)
+    return photo !== null
   }
 
   const confirmDelete = async () => {
@@ -243,6 +250,7 @@ export function GalleryPage() {
           onClose={() => setSelectedGenerationId(null)}
           onDownload={downloadAvatar}
           onDelete={handleDeleteFromModal}
+          onCopyToPhotos={handleCopyToPhotos}
           deleting={deleting}
           onNext={handleNext}
           onPrev={handlePrev}

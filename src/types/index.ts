@@ -79,7 +79,7 @@ export interface WizardState {
   isPublic: boolean
   shareUrl: string | null
   // Generation options (standard mode only - when use_legacy_options=true)
-  keepBackground: boolean
+  backgroundType: 'remove' | 'white' | 'keep'
   ageModification: 'normal' | 'younger' | 'older'
   customTextEnabled: boolean
   customText: string
@@ -90,7 +90,7 @@ export interface WizardState {
   inputValues: Record<string, string>
   // Custom mode options
   preserveFacialIdentity: boolean  // Whether to add face-preservation system prompt
-  aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
+  aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | 'linkedin' | 'twitter' | 'facebook' | 'youtube'
   imageSize: '1K' | '2K'
 }
 
@@ -159,6 +159,12 @@ export interface Generation {
   is_public: boolean
   share_url: string | null
   created_at: string
+  metadata?: {
+    banner_format?: string
+    original_ratio?: string
+    safe_zone?: number
+    [key: string]: unknown
+  } | null
   url?: string // Signed URL for full-resolution display
   thumbnailUrl?: string // Signed URL for thumbnail display
 }

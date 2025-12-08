@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from './useAuth'
-import { Photo } from '@/types'
+import { Photo, Generation } from '@/types'
 import { toast } from 'sonner'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
@@ -222,6 +222,86 @@ export function usePhotos() {
     return data?.signedUrl || null
   }
 
+  // Copy a generated avatar to the photo library
+  const copyAvatarToPhotos = async (generation: Generation): Promise<Photo | null> => {
+    if (!user) {
+      toast.error('Please sign in to copy photos')
+      return null
+    }
+
+    try {
+      // Download from avatars bucket
+      const { data: blob, error: downloadError } = await supabase.storage
+        .from('avatars')
+        .download(generation.output_storage_path)
+
+      if (downloadError || !blob) {
+        throw new Error('Failed to download avatar')
+      }
+
+      // Upload to input-photos bucket
+      const timestamp = Date.now()
+      const newPath = `${user.id}/${timestamp}_avatar_copy.png`
+      const { error: uploadError } = await supabase.storage
+        .from('input-photos')
+        .upload(newPath, blob, { contentType: 'image/png' })
+
+      if (uploadError) {
+        throw new Error('Failed to upload to photo library')
+      }
+
+      // Create photos record
+      const { data: photo, error: dbError } = await supabase
+        .from('photos')
+        .insert({
+          user_id: user.id,
+          storage_path: newPath,
+          filename: `avatar_copy_${timestamp}.png`,
+          mime_type: 'image/png',
+          file_size: blob.size,
+        })
+        .select()
+        .single()
+
+      if (dbError) throw dbError
+
+      // Get signed URL for the new photo
+      const { data: urlData } = await supabase.storage
+        .from('input-photos')
+        .createSignedUrl(newPath, 3600)
+
+      const photoWithUrl: Photo = {
+        ...photo,
+        url: urlData?.signedUrl || undefined,
+        thumbnailUrl: undefined,
+      }
+
+      // Add to state immediately
+      setPhotos((prev) => [photoWithUrl, ...prev])
+
+      // Generate thumbnail in the background
+      generateThumbnail(photo.id).then((result) => {
+        if (result?.thumbnailUrl) {
+          setPhotos((prev) =>
+            prev.map((p) =>
+              p.id === photo.id
+                ? { ...p, thumbnail_path: result.thumbnailPath, thumbnailUrl: result.thumbnailUrl }
+                : p
+            )
+          )
+        }
+      }).catch((error) => {
+        console.error('Thumbnail generation failed:', error)
+      })
+
+      return photoWithUrl
+    } catch (error) {
+      console.error('Error copying avatar to photos:', error)
+      toast.error('Failed to copy avatar')
+      return null
+    }
+  }
+
   return {
     photos,
     loading,
@@ -229,6 +309,7 @@ export function usePhotos() {
     uploadFromDataUrl,
     deletePhoto,
     getSignedUrl,
+    copyAvatarToPhotos,
     refresh: fetchPhotos,
   }
 }

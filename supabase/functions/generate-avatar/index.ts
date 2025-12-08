@@ -153,6 +153,29 @@ const CROP_TYPES: CropDefinition[] = [
 const PLACEMENT_MAP = new Map(NAME_PLACEMENTS.map(p => [p.id, p]))
 const CROP_MAP = new Map(CROP_TYPES.map(c => [c.id, c]))
 
+// ============================================================================
+// BANNER FORMAT CONFIGURATION
+// ============================================================================
+
+interface BannerConfig {
+  label: string
+  width: number
+  height: number
+  geminiRatio: '4:3' | '3:4' | '16:9' | '1:1'
+  safeZone: number  // Percentage of vertical space AI should use
+}
+
+const BANNER_FORMATS: Record<string, BannerConfig> = {
+  linkedin: { label: 'LinkedIn', width: 1584, height: 396, geminiRatio: '4:3', safeZone: 20 },
+  twitter: { label: 'X / Twitter', width: 1500, height: 500, geminiRatio: '3:4', safeZone: 45 },
+  facebook: { label: 'Facebook', width: 851, height: 315, geminiRatio: '4:3', safeZone: 50 },
+  youtube: { label: 'YouTube', width: 2560, height: 1440, geminiRatio: '16:9', safeZone: 100 },
+}
+
+function isBannerFormat(ratio: string): ratio is keyof typeof BANNER_FORMATS {
+  return ratio in BANNER_FORMATS
+}
+
 // Age modification prompts
 const AGE_PROMPTS: Record<string, string> = {
   normal: '',
@@ -161,8 +184,9 @@ const AGE_PROMPTS: Record<string, string> = {
 }
 
 // Background handling prompts
-const BACKGROUND_PROMPTS = {
+const BACKGROUND_PROMPTS: Record<string, string> = {
   remove: 'Replace the background with something neutral or style-appropriate that complements the overall aesthetic.',
+  white: 'Place the subject on a plain solid white background (#FFFFFF). The background must be pure white with no gradients or shadows.',
   keep: 'Keep the original background scene but transform it to match the art style.',
 }
 
@@ -189,7 +213,7 @@ interface GenerateAvatarRequest {
   inputValues?: Record<string, string>
 
   // Generation options (standard mode only - when use_legacy_options=true)
-  keepBackground?: boolean
+  backgroundType?: 'remove' | 'white' | 'keep'
   ageModification?: 'normal' | 'younger' | 'older'
   customisationText?: string
 
@@ -377,8 +401,8 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
   }
 
   // Validate new generation options
-  if (req.keepBackground !== undefined && typeof req.keepBackground !== 'boolean') {
-    throw new Error('keepBackground must be a boolean')
+  if (req.backgroundType !== undefined && !['remove', 'white', 'keep'].includes(req.backgroundType)) {
+    throw new Error('backgroundType must be one of: remove, white, keep')
   }
 
   if (req.ageModification && !['normal', 'younger', 'older'].includes(req.ageModification)) {
@@ -386,8 +410,8 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
   }
 
   if (req.customisationText) {
-    if (typeof req.customisationText !== 'string' || req.customisationText.length > 150) {
-      throw new Error('Customisation text must be under 150 characters')
+    if (typeof req.customisationText !== 'string' || req.customisationText.length > 1000) {
+      throw new Error('Customisation text must be under 1000 characters')
     }
     // Reuse existing regex pattern for allowed characters
     if (!/^[a-zA-Z0-9\s\-.,!?'"():;]+$/.test(req.customisationText)) {
@@ -395,10 +419,11 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
     }
   }
 
-  // Validate aspect ratio (for custom mode)
+  // Validate aspect ratio (for custom mode) - includes standard ratios AND banner formats
   const validAspectRatios = ['1:1', '16:9', '9:16', '4:3', '3:4']
-  if (req.aspectRatio && !validAspectRatios.includes(req.aspectRatio)) {
-    throw new Error(`Invalid aspect ratio. Must be one of: ${validAspectRatios.join(', ')}`)
+  const bannerFormats = ['linkedin', 'twitter', 'facebook', 'youtube']
+  if (req.aspectRatio && !validAspectRatios.includes(req.aspectRatio) && !bannerFormats.includes(req.aspectRatio)) {
+    throw new Error(`Invalid aspect ratio. Must be one of: ${validAspectRatios.join(', ')}, ${bannerFormats.join(', ')}`)
   }
 
   // Validate image size (for custom mode)
@@ -429,6 +454,40 @@ async function generateThumbnail(
   } catch (error) {
     console.error('Thumbnail generation error:', error)
     throw new Error('Failed to generate thumbnail')
+  }
+}
+
+// Resize and crop image to exact banner dimensions
+async function cropToBannerDimensions(
+  pngBytes: Uint8Array,
+  targetWidth: number,
+  targetHeight: number
+): Promise<Uint8Array> {
+  try {
+    const image = await Image.decode(pngBytes)
+    const srcWidth = image.width
+    const srcHeight = image.height
+
+    // Calculate scaling to cover the target dimensions
+    const scaleX = targetWidth / srcWidth
+    const scaleY = targetHeight / srcHeight
+    const scale = Math.max(scaleX, scaleY)
+
+    // Scale up
+    const scaledWidth = Math.round(srcWidth * scale)
+    const scaledHeight = Math.round(srcHeight * scale)
+    image.resize(scaledWidth, scaledHeight)
+
+    // Crop to exact dimensions (center crop)
+    const cropX = Math.round((scaledWidth - targetWidth) / 2)
+    const cropY = Math.round((scaledHeight - targetHeight) / 2)
+    image.crop(cropX, cropY, targetWidth, targetHeight)
+
+    const resultBytes = await image.encode()
+    return resultBytes
+  } catch (error) {
+    console.error('Banner crop error:', error)
+    throw new Error('Failed to crop image to banner dimensions')
   }
 }
 
@@ -842,7 +901,7 @@ Deno.serve(async (req) => {
       if (agePrompt) promptParts.push(agePrompt)
 
       // Background (always add - remove gets explicit replacement instruction)
-      const bgPrompt = validatedReq.keepBackground ? BACKGROUND_PROMPTS.keep : BACKGROUND_PROMPTS.remove
+      const bgPrompt = BACKGROUND_PROMPTS[validatedReq.backgroundType || 'remove'] || BACKGROUND_PROMPTS.remove
       promptParts.push(bgPrompt)
 
       // Custom text (user's additional customisation)
@@ -913,6 +972,15 @@ Deno.serve(async (req) => {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 180000) // 3 minutes
 
+    // Determine actual Gemini aspect ratio and whether to crop afterward
+    const requestedRatio = validatedReq.aspectRatio || '1:1'
+    const bannerConfig = isBannerFormat(requestedRatio) ? BANNER_FORMATS[requestedRatio] : null
+    const geminiAspectRatio = bannerConfig ? bannerConfig.geminiRatio : requestedRatio
+    // Force 2K for banner formats
+    const geminiImageSize = bannerConfig ? '2K' : (validatedReq.imageSize || '1K')
+
+    console.log('Generation config:', { requestedRatio, geminiAspectRatio, geminiImageSize, isBanner: !!bannerConfig })
+
     let geminiResponse: Response
     try {
       geminiResponse = await fetch(
@@ -926,8 +994,8 @@ Deno.serve(async (req) => {
             }],
             generationConfig: {
               imageConfig: {
-                aspectRatio: validatedReq.aspectRatio || '1:1',
-                imageSize: validatedReq.imageSize || '1K',
+                aspectRatio: geminiAspectRatio,
+                imageSize: geminiImageSize,
               },
             },
           }),
@@ -999,9 +1067,19 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Convert base64 to buffer
+    let avatarBuffer = Uint8Array.from(atob(generatedImageData), c => c.charCodeAt(0))
+
+    // If banner format, crop to exact dimensions
+    if (bannerConfig) {
+      console.log(`Cropping banner to ${bannerConfig.width}x${bannerConfig.height}...`)
+      avatarBuffer = await cropToBannerDimensions(avatarBuffer, bannerConfig.width, bannerConfig.height)
+      console.log('Banner cropped successfully')
+    }
+
     // Upload generated avatar to Supabase storage
-    const avatarFilename = `${user.id}/${Date.now()}_${crypto.randomUUID()}.png`
-    const avatarBuffer = Uint8Array.from(atob(generatedImageData), c => c.charCodeAt(0))
+    const bannerSuffix = bannerConfig ? `_${requestedRatio}` : ''
+    const avatarFilename = `${user.id}/${Date.now()}_${crypto.randomUUID()}${bannerSuffix}.png`
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from('avatars')
@@ -1050,6 +1128,15 @@ Deno.serve(async (req) => {
     // Create generation record in database
     // isPublic defaults to true if not specified
     const isPublic = validatedReq.isPublic !== false
+
+    // Build metadata for banner formats
+    const metadata = bannerConfig ? {
+      banner_format: requestedRatio,
+      original_ratio: bannerConfig.geminiRatio,
+      width: bannerConfig.width,
+      height: bannerConfig.height,
+    } : null
+
     const { data: generation, error: dbError } = await supabaseAdmin
       .from('generations')
       .insert({
@@ -1071,6 +1158,7 @@ Deno.serve(async (req) => {
         cost_usd: cost,
         is_public: isPublic,
         share_url: shareUrl,
+        metadata: metadata,
       })
       .select()
       .single()

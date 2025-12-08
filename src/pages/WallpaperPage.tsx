@@ -20,6 +20,7 @@ import {
   Check,
   RectangleHorizontal
 } from 'lucide-react'
+import { BANNER_FORMATS, getBannerPrompt, type BannerFormat } from '@/lib/bannerFormats'
 
 // Wallpaper aspect ratio options
 const WALLPAPER_RATIOS = [
@@ -29,43 +30,24 @@ const WALLPAPER_RATIOS = [
   { id: '3:4', label: 'Portrait 3:4', icon: Smartphone, description: 'Tablet portrait' },
 ]
 
-// Social media banner options with fixed dimensions
-const SOCIAL_BANNERS = [
-  { id: 'linkedin', label: 'LinkedIn', icon: RectangleHorizontal, description: '1584×396', width: 1584, height: 396 },
-  { id: 'facebook', label: 'Facebook', icon: RectangleHorizontal, description: '851×315', width: 851, height: 315 },
-  { id: 'twitter', label: 'X / Twitter', icon: RectangleHorizontal, description: '1500×500', width: 1500, height: 500 },
-  { id: 'youtube', label: 'YouTube', icon: RectangleHorizontal, description: '2560×1440', width: 2560, height: 1440 },
-]
+// Social media banner options derived from shared config
+const SOCIAL_BANNERS = (Object.entries(BANNER_FORMATS) as [BannerFormat, typeof BANNER_FORMATS[BannerFormat]][]).map(
+  ([id, config]) => ({
+    id,
+    label: config.label,
+    icon: RectangleHorizontal,
+    description: `${config.width}×${config.height}`,
+    width: config.width,
+    height: config.height,
+    safeZonePercent: config.safeZone,
+  })
+)
+
 
 // Combined for lookup
 const ALL_OPTIONS = [...WALLPAPER_RATIOS, ...SOCIAL_BANNERS]
 
 const WALLPAPER_PROMPT = `Extend this avatar image to fill the frame, creating a beautiful and complementary background that matches the art style. Keep the avatar as the main focus in the center.`
-
-// Banner prompt is a function so we can inject pixel dimensions
-const getBannerPrompt = (width: number, height: number) => `Transform this square avatar into a ${width}x${height} pixel social media banner.
-
-CRITICAL SIZE CONSTRAINT:
-- The output image is ${height} pixels tall
-- The character must be SCALED DOWN to fit entirely within ${height} pixels height with padding
-- Target character height: approximately ${Math.round(height * 0.85)} pixels (leaving space above head and below feet)
-- DO NOT crop the character - SHRINK it to fit
-
-COMPOSITION:
-- WIDE SHOT with the complete character (head to toe) scaled to fit the ${height}px height
-- Position the scaled-down character on the RIGHT side, occupying ~30% of the ${width}px width
-- The LEFT 70% is for background and text elements
-
-TEXT & GRAFFITI:
-- If the original image contains text, graffiti, or name lettering, RECREATE it in the same style on the LEFT side of the banner
-- The text should be prominent and readable, positioned to the left of the character
-- Match the original text style (graffiti, neon, hand-lettered, etc.) exactly
-
-STYLE:
-- Maintain the original art style, colors, and mood
-- Seamlessly extend background elements across the wide format
-
-OUTPUT: A banner where the full character is SMALLER than the original, fitting completely within the frame, with any text/graffiti repositioned to the left.`
 
 export function WallpaperPage() {
   const { generationId } = useParams<{ generationId: string }>()
@@ -116,7 +98,7 @@ export function WallpaperPage() {
 
     const banner = SOCIAL_BANNERS.find(b => b.id === selectedRatio)
     if (banner) {
-      setPrompt(getBannerPrompt(banner.width, banner.height))
+      setPrompt(getBannerPrompt(banner.safeZonePercent))
     } else {
       setPrompt(WALLPAPER_PROMPT)
     }
@@ -400,7 +382,7 @@ export function WallpaperPage() {
                   setHasEditedPrompt(false)
                   const banner = SOCIAL_BANNERS.find(b => b.id === selectedRatio)
                   if (banner) {
-                    setPrompt(getBannerPrompt(banner.width, banner.height))
+                    setPrompt(getBannerPrompt(banner.safeZonePercent))
                   } else {
                     setPrompt(WALLPAPER_PROMPT)
                   }

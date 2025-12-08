@@ -50,12 +50,57 @@ interface UserQuota {
 // Valid aspect ratios supported by Gemini
 const VALID_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4']
 
-// Social media banner presets with fixed dimensions
-const SOCIAL_BANNERS: Record<string, { width: number; height: number; geminiRatio: string }> = {
-  'linkedin': { width: 1584, height: 396, geminiRatio: '4:3' },   // 4:1 - use 4:3 and crop
-  'facebook': { width: 851, height: 315, geminiRatio: '16:9' },   // ~2.7:1 - use 16:9 and crop
-  'twitter': { width: 1500, height: 500, geminiRatio: '16:9' },   // 3:1 - use 16:9 and crop
-  'youtube': { width: 2560, height: 1440, geminiRatio: '16:9' },  // 16:9 - exact match
+// Social media banner configuration with safe zone calculations
+// Safe zone = percentage of image AI should use (with extra margin for error)
+// We tell AI to use less space than actually needed to ensure content stays safe
+interface BannerConfig {
+  width: number          // Final banner width
+  height: number         // Final banner height
+  geminiRatio: string    // Gemini aspect ratio to generate at
+  generatedHeight: number // Height when generated at geminiRatio (based on width)
+  safeZonePercent: number // Conservative safe zone (actual + ~15% margin)
+}
+
+const SOCIAL_BANNERS: Record<string, BannerConfig> = {
+  'linkedin': {
+    width: 1584, height: 396,
+    geminiRatio: '4:3',
+    generatedHeight: 1188,  // 1584 * 3/4
+    safeZonePercent: 20     // actual 33%, telling AI 20% for safety margin
+  },
+  'facebook': {
+    width: 851, height: 315,
+    geminiRatio: '16:9',
+    generatedHeight: 479,   // 851 * 9/16
+    safeZonePercent: 50     // actual 66%, telling AI 50% for safety margin
+  },
+  'twitter': {
+    width: 1500, height: 500,
+    geminiRatio: '16:9',
+    generatedHeight: 844,   // 1500 * 9/16
+    safeZonePercent: 45     // actual 59%, telling AI 45% for safety margin
+  },
+  'youtube': {
+    width: 2560, height: 1440,
+    geminiRatio: '16:9',
+    generatedHeight: 1440,  // exact match
+    safeZonePercent: 100    // no cropping needed
+  },
+}
+
+// Build safe zone prompt instructions for social banners
+function buildSafeZonePrompt(banner: BannerConfig): string {
+  if (banner.safeZonePercent === 100) return '' // No crop needed (YouTube)
+
+  const cropPercent = Math.round((100 - banner.safeZonePercent) / 2)
+  return `
+
+CRITICAL COMPOSITION CONSTRAINT:
+This image will be cropped to a ${banner.width}×${banner.height} banner.
+The TOP ${cropPercent}% and BOTTOM ${cropPercent}% of the image will be REMOVED.
+Keep ALL important content (faces, text, key elements) strictly within the CENTER ${banner.safeZonePercent}% vertical band.
+The top and bottom zones should contain ONLY background elements (sky, ground, gradients) that can be safely cropped.
+Do NOT place any faces, text, or focal points near the top or bottom edges.`
 }
 
 // ============================================================================
@@ -285,10 +330,11 @@ Deno.serve(async (req) => {
       : validatedReq.aspectRatio
 
     // Build the prompt for image extension
-    // For social banners, let the user's prompt handle composition (it has pixel-specific instructions)
+    // For social banners, append safe zone instructions so AI knows what will be cropped
     // For wallpapers, add standard extension instructions
+    const safeZoneInstructions = socialBanner ? buildSafeZonePrompt(socialBanner) : ''
     const extensionPrompt = socialBanner
-      ? validatedReq.prompt
+      ? `${validatedReq.prompt}${safeZoneInstructions}`
       : `${validatedReq.prompt}
 
 CRITICAL: This is an existing AI-generated avatar image. Extend the canvas to fill the new ${displayRatio} format while:
@@ -332,7 +378,7 @@ CRITICAL: This is an existing AI-generated avatar image. Extend the canvas to fi
             generationConfig: {
               imageConfig: {
                 aspectRatio: geminiAspectRatio,
-                imageSize: '1K',
+                imageSize: '2K',
               },
             },
           }),

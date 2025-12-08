@@ -12,8 +12,9 @@ const AGE_PROMPTS: Record<string, string> = {
   older: 'Make the person appear older with mature features.',
 }
 
-const BACKGROUND_PROMPTS = {
+const BACKGROUND_PROMPTS: Record<string, string> = {
   remove: 'Replace the background with something neutral or style-appropriate that complements the overall aesthetic.',
+  white: 'Place the subject on a plain solid white background (#FFFFFF). The background must be pure white with no gradients or shadows.',
   keep: 'Keep the original background scene but transform it to match the art style.',
 }
 
@@ -109,7 +110,7 @@ function buildPrompt(
     if (agePrompt) parts.push(agePrompt)
 
     // Background
-    const bgPrompt = state.keepBackground ? BACKGROUND_PROMPTS.keep : BACKGROUND_PROMPTS.remove
+    const bgPrompt = BACKGROUND_PROMPTS[state.backgroundType] || BACKGROUND_PROMPTS.remove
     parts.push(bgPrompt)
 
     // Custom text
