@@ -165,6 +165,11 @@ export interface Generation {
     safe_zone?: number
     [key: string]: unknown
   } | null
+  // Avatar editing support
+  thought_signatures?: unknown | null  // Gemini's encrypted context for multi-turn editing
+  parent_generation_id?: string | null // Links edits to their parent generation
+  full_prompt?: string | null          // The complete prompt sent to Gemini
+  system_prompt?: string | null        // The system instructions used
   url?: string // Signed URL for full-resolution display
   thumbnailUrl?: string // Signed URL for thumbnail display
 }

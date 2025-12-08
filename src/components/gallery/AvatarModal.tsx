@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, PanInfo } from 'framer-motion'
 import { Generation } from '@/types'
-import { X, Download, Calendar, Palette, Crop, Type, Loader2, Trash2, Share2, ChevronDown, ChevronLeft, ChevronRight, Monitor, ImagePlus } from 'lucide-react'
+import { X, Download, Calendar, Palette, Crop, Type, Loader2, Trash2, Share2, ChevronDown, ChevronLeft, ChevronRight, Monitor, ImagePlus, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { getAspectRatioCss } from '@/lib/aspectRatio'
@@ -153,6 +153,12 @@ export function AvatarModal({
     if (!generation) return
     onClose()
     navigate(`/wallpaper/${generation.id}`)
+  }
+
+  const handleEditWithAI = () => {
+    if (!generation) return
+    onClose()
+    navigate(`/edit/${generation.id}`)
   }
 
   const handleCopyToPhotos = async () => {
@@ -385,6 +391,16 @@ export function AvatarModal({
                   <span className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
                     <Monitor className="h-4 w-4" />
                     <span className="text-xs sm:text-sm">Wallpaper</span>
+                  </span>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleEditWithAI}
+                  className="border-white/20 text-white bg-white/5 hover:bg-white/10 h-auto py-2"
+                >
+                  <span className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+                    <Wand2 className="h-4 w-4" />
+                    <span className="text-xs sm:text-sm">Edit</span>
                   </span>
                 </Button>
                 <Button

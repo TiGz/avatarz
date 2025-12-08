@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { WizardHook } from '@/hooks/useWizard'
-import { Download, RefreshCw, Images, RotateCw, ArrowLeft, Share2, Monitor } from 'lucide-react'
+import { Download, RefreshCw, Images, RotateCw, ArrowLeft, Share2, Monitor, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface DownloadStepProps {
@@ -119,6 +119,14 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
     navigate(`/wallpaper/${state.generationId}`)
   }
 
+  const handleEditWithAI = () => {
+    if (!state.generationId) {
+      toast.error('Unable to edit avatar')
+      return
+    }
+    navigate(`/edit/${state.generationId}`)
+  }
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-white text-center">
@@ -210,6 +218,16 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
           >
             <Monitor className="mr-2 h-4 w-4" />
             Wallpaper
+          </Button>
+        )}
+        {state.generationId && (
+          <Button
+            variant="outline"
+            onClick={handleEditWithAI}
+            className="bg-transparent border-white/20 text-white hover:bg-white/10"
+          >
+            <Wand2 className="mr-2 h-4 w-4" />
+            Edit
           </Button>
         )}
       </div>

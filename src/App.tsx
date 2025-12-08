@@ -8,6 +8,7 @@ import { WizardPage } from '@/pages/WizardPage'
 import { PhotoLibraryPage } from '@/pages/PhotoLibraryPage'
 import { GalleryPage } from '@/pages/GalleryPage'
 import { WallpaperPage } from '@/pages/WallpaperPage'
+import { EditPage } from '@/pages/EditPage'
 import { InviteRedemptionPage } from '@/pages/InviteRedemptionPage'
 import { Loader2 } from 'lucide-react'
 
@@ -47,6 +48,10 @@ function AppRoutes() {
       <Route
         path="/wallpaper/:generationId"
         element={user ? <WallpaperPage /> : <Navigate to="/" />}
+      />
+      <Route
+        path="/edit/:id"
+        element={user ? <EditPage /> : <Navigate to="/" />}
       />
       <Route
         path="/invite/:code"

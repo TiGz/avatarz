@@ -245,17 +245,25 @@ interface GenerateAvatarRequest {
   preserveFacialIdentity?: boolean  // Whether to add face-preservation system prompt
   aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
   imageSize?: '1K' | '2K'
+
+  // Edit mode (optional) - for editing existing avatars
+  editGenerationId?: string   // Parent generation to edit
+  editPrompt?: string         // User's edit instruction
+}
+
+interface GeminiPart {
+  text?: string
+  inlineData?: {
+    mimeType?: string
+    data?: string
+  }
+  thoughtSignature?: string  // Gemini's encrypted context for multi-turn editing
 }
 
 interface GeminiResponse {
   candidates?: Array<{
     content?: {
-      parts?: Array<{
-        inlineData?: {
-          mimeType?: string
-          data?: string
-        }
-      }>
+      parts?: GeminiPart[]
     }
     finishReason?: string  // e.g., 'STOP', 'IMAGE_OTHER', 'SAFETY'
     finishMessage?: string // Human-readable explanation when generation fails
@@ -272,6 +280,19 @@ interface UserQuota {
   used: number
   remaining: number
   is_admin: boolean
+}
+
+// Stored thought signatures format
+interface StoredThoughtSignatures {
+  parts: Array<{
+    type: 'text' | 'image'
+    signature: string
+    // For image parts, store the image data to rebuild conversation
+    imageData?: string
+    mimeType?: string
+  }>
+  // Store the original prompt for context rebuilding
+  originalPrompt?: string
 }
 
 interface InviteQuota {
@@ -454,6 +475,22 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
   const validImageSizes = ['1K', '2K']
   if (req.imageSize && !validImageSizes.includes(req.imageSize)) {
     throw new Error(`Invalid image size. Must be one of: ${validImageSizes.join(', ')}`)
+  }
+
+  // Validate edit mode parameters
+  if (req.editGenerationId) {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(req.editGenerationId)) {
+      throw new Error('Invalid edit generation ID format')
+    }
+    // Edit prompt is required when editing
+    if (!req.editPrompt || typeof req.editPrompt !== 'string' || req.editPrompt.trim().length === 0) {
+      throw new Error('Edit prompt is required when editing an existing avatar')
+    }
+    if (req.editPrompt.length > 1000) {
+      throw new Error('Edit prompt must be under 1000 characters')
+    }
   }
 
   return req
@@ -958,6 +995,13 @@ Deno.serve(async (req) => {
 
     const prompt = promptParts.join(' ').trim()
 
+    // Store the system prompt (face preservation instructions)
+    const systemPromptForStorage = shouldPreserveFace
+      ? (imageDataArray.length > 1
+          ? `CRITICAL: Preserve the exact facial identity of ALL ${imageDataArray.length} people in the photos...`
+          : 'CRITICAL: Preserve the exact facial identity of the person in the photo...')
+      : null
+
     console.log('Prompt:', prompt)
 
     // Call Gemini API
@@ -966,21 +1010,106 @@ Deno.serve(async (req) => {
       throw new Error('Gemini API key not configured')
     }
 
-    // Build Gemini request with multiple images
-    const geminiParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = []
+    // Check if this is an edit request - fetch parent generation and build conversation history
+    let parentThoughtSignatures: StoredThoughtSignatures | null = null
+    let parentGenerationId: string | null = null
 
-    // Add all images first
-    for (const img of imageDataArray) {
-      geminiParts.push({
-        inlineData: {
-          mimeType: img.mimeType,
-          data: img.base64Data,
-        },
-      })
+    if (validatedReq.editGenerationId && validatedReq.editPrompt) {
+      console.log('Edit mode: fetching parent generation', validatedReq.editGenerationId)
+
+      const { data: parent, error: parentError } = await supabaseAdmin
+        .from('generations')
+        .select('id, thought_signatures, output_storage_path')
+        .eq('id', validatedReq.editGenerationId)
+        .eq('user_id', user.id)  // Ensure user owns the generation
+        .single()
+
+      if (parentError || !parent) {
+        console.error('Parent generation fetch error:', parentError)
+        return new Response(
+          JSON.stringify({ error: 'Parent generation not found or access denied' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      if (!parent.thought_signatures) {
+        return new Response(
+          JSON.stringify({
+            error: 'This avatar cannot be edited (created before edit support was added)',
+            code: 'NO_THOUGHT_SIGNATURES'
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      parentThoughtSignatures = parent.thought_signatures as StoredThoughtSignatures
+      parentGenerationId = parent.id
+      console.log('Edit mode enabled, parent has thought signatures')
     }
 
-    // Add the prompt text
-    geminiParts.push({ text: prompt })
+    const isEditMode = parentThoughtSignatures !== null
+
+    // Build Gemini request - either new generation or multi-turn edit
+    type GeminiRequestPart = { text?: string; inlineData?: { mimeType: string; data: string }; thoughtSignature?: string }
+    let geminiContents: Array<{ role?: string; parts: GeminiRequestPart[] }>
+
+    if (isEditMode && parentThoughtSignatures) {
+      // Multi-turn edit: rebuild conversation history with thought signatures
+      const storedSigs = parentThoughtSignatures
+
+      // Build the original model response with thought signatures
+      const modelParts: GeminiRequestPart[] = storedSigs.parts.map(part => {
+        if (part.type === 'image' && part.imageData && part.mimeType) {
+          return {
+            inlineData: { mimeType: part.mimeType, data: part.imageData },
+            thoughtSignature: part.signature
+          }
+        } else {
+          return {
+            text: part.type === 'text' ? (storedSigs.originalPrompt || '') : '',
+            thoughtSignature: part.signature
+          }
+        }
+      })
+
+      geminiContents = [
+        // Original user request (reconstructed)
+        {
+          role: 'user',
+          parts: [{ text: storedSigs.originalPrompt || 'Generate an avatar' }]
+        },
+        // Original model response WITH thought signatures
+        {
+          role: 'model',
+          parts: modelParts
+        },
+        // New edit request
+        {
+          role: 'user',
+          parts: [{ text: validatedReq.editPrompt! }]
+        }
+      ]
+
+      console.log('Built multi-turn conversation for edit')
+    } else {
+      // Standard generation: single turn
+      const geminiParts: GeminiRequestPart[] = []
+
+      // Add all images first
+      for (const img of imageDataArray) {
+        geminiParts.push({
+          inlineData: {
+            mimeType: img.mimeType,
+            data: img.base64Data,
+          },
+        })
+      }
+
+      // Add the prompt text
+      geminiParts.push({ text: prompt })
+
+      geminiContents = [{ parts: geminiParts }]
+    }
 
     // Use Gemini 3 Pro Image model for image generation/editing
     // Set up 3-minute timeout for slow generations
@@ -992,7 +1121,7 @@ Deno.serve(async (req) => {
     // Force 2K for banner formats
     const geminiImageSize = bannerConfig ? '2K' : (validatedReq.imageSize || '1K')
 
-    console.log('Generation config:', { requestedRatio, geminiAspectRatio, geminiImageSize, isBanner: !!bannerConfig })
+    console.log('Generation config:', { requestedRatio, geminiAspectRatio, geminiImageSize, isBanner: !!bannerConfig, isEditMode })
 
     let geminiResponse: Response
     try {
@@ -1002,10 +1131,9 @@ Deno.serve(async (req) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{
-              parts: geminiParts,
-            }],
+            contents: geminiContents,
             generationConfig: {
+              responseModalities: ['TEXT', 'IMAGE'],
               imageConfig: {
                 aspectRatio: geminiAspectRatio,
                 imageSize: geminiImageSize,
@@ -1078,6 +1206,38 @@ Deno.serve(async (req) => {
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
+    }
+
+    // Extract thought signatures from response for multi-turn editing support
+    const responseParts = result.candidates?.[0]?.content?.parts || []
+    const extractedThoughtSignatures: StoredThoughtSignatures = {
+      parts: responseParts
+        .filter((part: GeminiPart) => part.thoughtSignature)
+        .map((part: GeminiPart) => {
+          if (part.inlineData?.mimeType?.startsWith('image/')) {
+            return {
+              type: 'image' as const,
+              signature: part.thoughtSignature!,
+              imageData: part.inlineData.data,
+              mimeType: part.inlineData.mimeType
+            }
+          } else {
+            return {
+              type: 'text' as const,
+              signature: part.thoughtSignature!
+            }
+          }
+        }),
+      originalPrompt: isEditMode ? validatedReq.editPrompt : prompt
+    }
+
+    // Only store signatures if we have any (Gemini may not return them in all cases)
+    const thoughtSignaturesToStore = extractedThoughtSignatures.parts.length > 0
+      ? extractedThoughtSignatures
+      : null
+
+    if (thoughtSignaturesToStore) {
+      console.log(`Extracted ${extractedThoughtSignatures.parts.length} thought signatures for future editing`)
     }
 
     // Convert base64 to buffer
@@ -1169,6 +1329,11 @@ Deno.serve(async (req) => {
         is_public: isPublic,
         share_url: shareUrl,
         metadata: metadata,
+        // Avatar editing support
+        thought_signatures: thoughtSignaturesToStore,
+        parent_generation_id: parentGenerationId,
+        full_prompt: isEditMode ? validatedReq.editPrompt : prompt,
+        system_prompt: systemPromptForStorage,
       })
       .select()
       .single()
