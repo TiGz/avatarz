@@ -366,10 +366,10 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
                 <option value="4:3">4:3 (Standard)</option>
                 <option value="3:4">3:4 (Portrait)</option>
                 <option disabled className="text-gray-600">──────────</option>
-                <option value="linkedin">LinkedIn ({BANNER_FORMATS.linkedin.width}×{BANNER_FORMATS.linkedin.height})</option>
-                <option value="twitter">X / Twitter ({BANNER_FORMATS.twitter.width}×{BANNER_FORMATS.twitter.height})</option>
-                <option value="facebook">Facebook ({BANNER_FORMATS.facebook.width}×{BANNER_FORMATS.facebook.height})</option>
-                <option value="youtube">YouTube ({BANNER_FORMATS.youtube.width}×{BANNER_FORMATS.youtube.height})</option>
+                <option value="linkedin">LinkedIn Banner</option>
+                <option value="twitter">X / Twitter Banner</option>
+                <option value="facebook">Facebook Banner</option>
+                <option value="youtube">YouTube Banner</option>
               </select>
             </div>
             <div className="flex-1">

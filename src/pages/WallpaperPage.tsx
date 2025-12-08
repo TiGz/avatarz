@@ -36,7 +36,7 @@ const SOCIAL_BANNERS = (Object.entries(BANNER_FORMATS) as [BannerFormat, typeof 
     id,
     label: config.label,
     icon: RectangleHorizontal,
-    description: `${config.width}×${config.height}`,
+    description: 'Social banner',
     width: config.width,
     height: config.height,
     safeZonePercent: config.safeZone,
@@ -359,8 +359,7 @@ export function WallpaperPage() {
             <div className="flex items-center gap-4 text-xs text-gray-500">
               <span>
                 {outputDimensions.isSocialBanner ? <RectangleHorizontal className="h-3.5 w-3.5 inline mr-1" /> : <Monitor className="h-3.5 w-3.5 inline mr-1" />}
-                {outputDimensions.width} x {outputDimensions.height}
-                {!outputDimensions.isSocialBanner && ' (your screen)'}
+                {outputDimensions.isSocialBanner ? '16:9 banner' : `${outputDimensions.width} x ${outputDimensions.height} (your screen)`}
               </span>
               <span>{prompt.length}/3000</span>
             </div>

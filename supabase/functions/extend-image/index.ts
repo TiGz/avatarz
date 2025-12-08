@@ -51,34 +51,35 @@ interface UserQuota {
 const VALID_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4']
 
 // Social media banner configuration with safe zone calculations
-// Safe zone = percentage of image AI should use (with extra margin for error)
-// We tell AI to use less space than actually needed to ensure content stays safe
+// All banners use 16:9 to minimize cropping (2K = 2048x1152)
+// safeZonePercent = what we tell AI (smaller than actual keep % for safety margin)
+// LinkedIn: keep 44%, tell 35% | Twitter: keep 59%, tell 50% | Facebook: keep 66%, tell 55%
 interface BannerConfig {
   width: number          // Final banner width
   height: number         // Final banner height
   geminiRatio: string    // Gemini aspect ratio to generate at
   generatedHeight: number // Height when generated at geminiRatio (based on width)
-  safeZonePercent: number // Conservative safe zone (actual + ~15% margin)
+  safeZonePercent: number // What we tell AI (smaller than actual for safety margin)
 }
 
 const SOCIAL_BANNERS: Record<string, BannerConfig> = {
   'linkedin': {
     width: 1584, height: 396,
-    geminiRatio: '4:3',
-    generatedHeight: 1188,  // 1584 * 3/4
-    safeZonePercent: 20     // actual 33%, telling AI 20% for safety margin
-  },
-  'facebook': {
-    width: 851, height: 315,
     geminiRatio: '16:9',
-    generatedHeight: 479,   // 851 * 9/16
-    safeZonePercent: 50     // actual 66%, telling AI 50% for safety margin
+    generatedHeight: 891,   // 1584 * 9/16
+    safeZonePercent: 35     // keep 44%, tell 35%
   },
   'twitter': {
     width: 1500, height: 500,
     geminiRatio: '16:9',
     generatedHeight: 844,   // 1500 * 9/16
-    safeZonePercent: 45     // actual 59%, telling AI 45% for safety margin
+    safeZonePercent: 50     // keep 59%, tell 50%
+  },
+  'facebook': {
+    width: 851, height: 315,
+    geminiRatio: '16:9',
+    generatedHeight: 479,   // 851 * 9/16
+    safeZonePercent: 55     // keep 66%, tell 55%
   },
   'youtube': {
     width: 2560, height: 1440,
@@ -171,40 +172,6 @@ async function generateThumbnail(
   } catch (error) {
     console.error('Thumbnail generation error:', error)
     throw new Error('Failed to generate thumbnail')
-  }
-}
-
-// Resize and crop image to exact dimensions (for social banners)
-async function resizeToExactDimensions(
-  pngBytes: Uint8Array,
-  targetWidth: number,
-  targetHeight: number
-): Promise<Uint8Array> {
-  try {
-    const image = await Image.decode(pngBytes)
-    const srcWidth = image.width
-    const srcHeight = image.height
-
-    // Calculate scaling to cover the target dimensions
-    const scaleX = targetWidth / srcWidth
-    const scaleY = targetHeight / srcHeight
-    const scale = Math.max(scaleX, scaleY)
-
-    // Scale up
-    const scaledWidth = Math.round(srcWidth * scale)
-    const scaledHeight = Math.round(srcHeight * scale)
-    image.resize(scaledWidth, scaledHeight)
-
-    // Crop to exact dimensions (center crop)
-    const cropX = Math.round((scaledWidth - targetWidth) / 2)
-    const cropY = Math.round((scaledHeight - targetHeight) / 2)
-    image.crop(cropX, cropY, targetWidth, targetHeight)
-
-    const resultBytes = await image.encode()
-    return resultBytes
-  } catch (error) {
-    console.error('Resize error:', error)
-    throw new Error('Failed to resize image')
   }
 }
 
@@ -447,22 +414,7 @@ CRITICAL: This is an existing AI-generated avatar image. Extend the canvas to fi
     }
 
     // Convert base64 to buffer
-    let wallpaperBuffer = Uint8Array.from(atob(generatedImageData), c => c.charCodeAt(0))
-
-    // For social banners, resize/crop to exact dimensions
-    let finalImageBase64 = generatedImageData
-    if (socialBanner) {
-      console.log(`Resizing to exact banner dimensions: ${socialBanner.width}x${socialBanner.height}`)
-      wallpaperBuffer = await resizeToExactDimensions(wallpaperBuffer, socialBanner.width, socialBanner.height)
-      // Re-encode to base64 for response
-      let binary = ''
-      const chunkSize = 8192
-      for (let i = 0; i < wallpaperBuffer.length; i += chunkSize) {
-        const chunk = wallpaperBuffer.subarray(i, i + chunkSize)
-        binary += String.fromCharCode(...chunk)
-      }
-      finalImageBase64 = btoa(binary)
-    }
+    const wallpaperBuffer = Uint8Array.from(atob(generatedImageData), c => c.charCodeAt(0))
 
     // Upload generated wallpaper to storage
     const aspectSuffix = validatedReq.aspectRatio.replace(':', 'x')
@@ -573,7 +525,7 @@ CRITICAL: This is an existing AI-generated avatar image. Extend the canvas to fi
     return new Response(
       JSON.stringify({
         success: true,
-        image: `data:image/png;base64,${finalImageBase64}`,
+        image: `data:image/png;base64,${generatedImageData}`,
         wallpaperPath: wallpaperFilename,
         wallpaperUrl: signedUrlData?.signedUrl,
         thumbnailPath: thumbnailFilename,

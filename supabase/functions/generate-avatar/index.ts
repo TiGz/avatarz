@@ -165,15 +165,39 @@ interface BannerConfig {
   safeZone: number  // Percentage of vertical space AI should use
 }
 
+// All banners use 16:9 to minimize cropping (2K = 2048x1152)
+// safeZone = what we tell AI (smaller than actual keep % for safety margin)
+// LinkedIn: keep 44%, tell 35% | Twitter: keep 59%, tell 50% | Facebook: keep 66%, tell 55%
 const BANNER_FORMATS: Record<string, BannerConfig> = {
-  linkedin: { label: 'LinkedIn', width: 1584, height: 396, geminiRatio: '4:3', safeZone: 20 },
-  twitter: { label: 'X / Twitter', width: 1500, height: 500, geminiRatio: '3:4', safeZone: 45 },
-  facebook: { label: 'Facebook', width: 851, height: 315, geminiRatio: '4:3', safeZone: 50 },
+  linkedin: { label: 'LinkedIn', width: 1584, height: 396, geminiRatio: '16:9', safeZone: 35 },
+  twitter: { label: 'X / Twitter', width: 1500, height: 500, geminiRatio: '16:9', safeZone: 50 },
+  facebook: { label: 'Facebook', width: 851, height: 315, geminiRatio: '16:9', safeZone: 55 },
   youtube: { label: 'YouTube', width: 2560, height: 1440, geminiRatio: '16:9', safeZone: 100 },
 }
 
 function isBannerFormat(ratio: string): ratio is keyof typeof BANNER_FORMATS {
   return ratio in BANNER_FORMATS
+}
+
+// Build safe zone prompt instructions for banner formats
+// Tells AI to keep content in center band since top/bottom will be cropped
+function buildBannerPrompt(banner: BannerConfig): string {
+  if (banner.safeZone === 100) return '' // No cropping needed (YouTube)
+
+  const cropPercent = Math.round((100 - banner.safeZone) / 2)
+  return `
+
+CRITICAL BANNER COMPOSITION:
+This image will be cropped to a ${banner.width}×${banner.height} ${banner.label} banner.
+The TOP ${cropPercent}% and BOTTOM ${cropPercent}% of the image will be REMOVED during cropping.
+
+SAFE ZONE REQUIREMENTS:
+- Keep ALL important content (faces, bodies, text, key elements) strictly within the CENTER ${banner.safeZone}% vertical band
+- The subject should be positioned to the RIGHT side, occupying ~30% of the width
+- Leave the LEFT ~70% for background/text elements
+- The top and bottom zones should contain ONLY background elements (sky, ground, gradients) that can be safely cropped
+- Do NOT place any faces, text, or focal points near the top or bottom edges
+- Show the complete subject (head to toe) scaled to fit entirely within the safe center band`
 }
 
 // Age modification prompts
@@ -454,40 +478,6 @@ async function generateThumbnail(
   } catch (error) {
     console.error('Thumbnail generation error:', error)
     throw new Error('Failed to generate thumbnail')
-  }
-}
-
-// Resize and crop image to exact banner dimensions
-async function cropToBannerDimensions(
-  pngBytes: Uint8Array,
-  targetWidth: number,
-  targetHeight: number
-): Promise<Uint8Array> {
-  try {
-    const image = await Image.decode(pngBytes)
-    const srcWidth = image.width
-    const srcHeight = image.height
-
-    // Calculate scaling to cover the target dimensions
-    const scaleX = targetWidth / srcWidth
-    const scaleY = targetHeight / srcHeight
-    const scale = Math.max(scaleX, scaleY)
-
-    // Scale up
-    const scaledWidth = Math.round(srcWidth * scale)
-    const scaledHeight = Math.round(srcHeight * scale)
-    image.resize(scaledWidth, scaledHeight)
-
-    // Crop to exact dimensions (center crop)
-    const cropX = Math.round((scaledWidth - targetWidth) / 2)
-    const cropY = Math.round((scaledHeight - targetHeight) / 2)
-    image.crop(cropX, cropY, targetWidth, targetHeight)
-
-    const resultBytes = await image.encode()
-    return resultBytes
-  } catch (error) {
-    console.error('Banner crop error:', error)
-    throw new Error('Failed to crop image to banner dimensions')
   }
 }
 
@@ -923,6 +913,15 @@ Deno.serve(async (req) => {
       if (namePrompt) promptParts.push(namePrompt)
     }
 
+    // Banner safe zone instructions (for social media banner formats)
+    // Must come before face preservation to ensure composition is correct
+    const requestedRatio = validatedReq.aspectRatio || '1:1'
+    const bannerConfig = isBannerFormat(requestedRatio) ? BANNER_FORMATS[requestedRatio] : null
+    if (bannerConfig) {
+      const bannerPrompt = buildBannerPrompt(bannerConfig)
+      if (bannerPrompt) promptParts.push(bannerPrompt)
+    }
+
     // System suffix for face recognition
     // For custom mode: only add if preserveFacialIdentity is true (user opted in)
     // For other styles: always add when photos exist
@@ -972,9 +971,7 @@ Deno.serve(async (req) => {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 180000) // 3 minutes
 
-    // Determine actual Gemini aspect ratio and whether to crop afterward
-    const requestedRatio = validatedReq.aspectRatio || '1:1'
-    const bannerConfig = isBannerFormat(requestedRatio) ? BANNER_FORMATS[requestedRatio] : null
+    // Determine actual Gemini aspect ratio (bannerConfig already set above for prompt building)
     const geminiAspectRatio = bannerConfig ? bannerConfig.geminiRatio : requestedRatio
     // Force 2K for banner formats
     const geminiImageSize = bannerConfig ? '2K' : (validatedReq.imageSize || '1K')
@@ -1068,14 +1065,7 @@ Deno.serve(async (req) => {
     }
 
     // Convert base64 to buffer
-    let avatarBuffer = Uint8Array.from(atob(generatedImageData), c => c.charCodeAt(0))
-
-    // If banner format, crop to exact dimensions
-    if (bannerConfig) {
-      console.log(`Cropping banner to ${bannerConfig.width}x${bannerConfig.height}...`)
-      avatarBuffer = await cropToBannerDimensions(avatarBuffer, bannerConfig.width, bannerConfig.height)
-      console.log('Banner cropped successfully')
-    }
+    const avatarBuffer = Uint8Array.from(atob(generatedImageData), c => c.charCodeAt(0))
 
     // Upload generated avatar to Supabase storage
     const bannerSuffix = bannerConfig ? `_${requestedRatio}` : ''

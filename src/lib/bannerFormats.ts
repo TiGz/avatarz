@@ -1,5 +1,9 @@
 // Shared banner format configuration
 // Used by both CustomFlow (GenerateStep) and WallpaperPage
+//
+// All banners use 16:9 to minimize cropping (2K = 2048x1152)
+// safeZone = what we tell AI (smaller than actual keep % for safety margin)
+// LinkedIn: keep 44%, tell 35% | Twitter: keep 59%, tell 50% | Facebook: keep 66%, tell 55%
 
 export type BannerFormat = 'linkedin' | 'twitter' | 'facebook' | 'youtube'
 
@@ -8,13 +12,13 @@ export interface BannerConfig {
   width: number
   height: number
   geminiRatio: '4:3' | '3:4' | '16:9' | '1:1'
-  safeZone: number  // Percentage of vertical space AI should use
+  safeZone: number  // What we tell AI (smaller than actual for safety margin)
 }
 
 export const BANNER_FORMATS: Record<BannerFormat, BannerConfig> = {
-  linkedin: { label: 'LinkedIn', width: 1584, height: 396, geminiRatio: '4:3', safeZone: 20 },
-  twitter: { label: 'X / Twitter', width: 1500, height: 500, geminiRatio: '3:4', safeZone: 45 },
-  facebook: { label: 'Facebook', width: 851, height: 315, geminiRatio: '4:3', safeZone: 50 },
+  linkedin: { label: 'LinkedIn', width: 1584, height: 396, geminiRatio: '16:9', safeZone: 35 },
+  twitter: { label: 'X / Twitter', width: 1500, height: 500, geminiRatio: '16:9', safeZone: 50 },
+  facebook: { label: 'Facebook', width: 851, height: 315, geminiRatio: '16:9', safeZone: 55 },
   youtube: { label: 'YouTube', width: 2560, height: 1440, geminiRatio: '16:9', safeZone: 100 },
 }
 
