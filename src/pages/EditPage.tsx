@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { Header } from '@/components/ui/Header'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -15,11 +15,18 @@ import {
   Download,
   Images,
   History,
+  Settings,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
+
+type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
+type ImageSize = '1K' | '2K'
 
 export function EditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
   const { quota, loading: quotaLoading, refresh: refreshQuota } = useQuota()
 
@@ -32,6 +39,17 @@ export function EditPage() {
   const [editPrompt, setEditPrompt] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showOptions, setShowOptions] = useState(false)
+
+  // Read options from URL params with defaults
+  const aspectRatio = (searchParams.get('aspectRatio') as AspectRatio) || '1:1'
+  const imageSize = (searchParams.get('imageSize') as ImageSize) || '1K'
+
+  const updateOption = (key: 'aspectRatio' | 'imageSize', value: string) => {
+    const params = new URLSearchParams(searchParams)
+    params.set(key, value)
+    setSearchParams(params, { replace: true })
+  }
 
   // Fetch generation on mount
   useEffect(() => {
@@ -103,6 +121,9 @@ export function EditPage() {
             // Keep same settings as parent
             style: generation.style,
             cropType: generation.crop_type,
+            // Optional format settings
+            aspectRatio,
+            imageSize,
           }),
         }
       )
@@ -119,9 +140,13 @@ export function EditPage() {
       // Navigate to the new generation's edit page
       if (result.generationId) {
         toast.success('Edit generated!')
-        // Clear the prompt and navigate to new generation
+        // Clear the prompt and navigate to new generation, preserving options
         setEditPrompt('')
-        navigate(`/edit/${result.generationId}`)
+        const params = new URLSearchParams()
+        if (aspectRatio !== '1:1') params.set('aspectRatio', aspectRatio)
+        if (imageSize !== '1K') params.set('imageSize', imageSize)
+        const queryString = params.toString()
+        navigate(`/edit/${result.generationId}${queryString ? `?${queryString}` : ''}`)
       }
     } catch (err) {
       console.error('Edit error:', err)
@@ -230,6 +255,64 @@ export function EditPage() {
                   disabled={isGenerating}
                 />
               </div>
+
+              {/* Options toggle */}
+              <button
+                type="button"
+                onClick={() => setShowOptions(!showOptions)}
+                className="flex items-center gap-2 text-sm text-white/70 hover:text-white/90 transition-colors"
+              >
+                <Settings className="h-4 w-4" />
+                Options
+                {showOptions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+
+              {/* Options panel */}
+              {showOptions && (
+                <div className="p-4 bg-white/5 rounded-lg border border-white/10 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-white/70 mb-2">Aspect Ratio</label>
+                      <select
+                        value={aspectRatio}
+                        onChange={(e) => updateOption('aspectRatio', e.target.value)}
+                        className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded-md text-white text-sm"
+                        disabled={isGenerating}
+                      >
+                        <option value="1:1">1:1 Square</option>
+                        <option value="16:9">16:9 Landscape</option>
+                        <option value="9:16">9:16 Portrait</option>
+                        <option value="4:3">4:3 Standard</option>
+                        <option value="3:4">3:4 Portrait</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-white/70 mb-2">Resolution</label>
+                      <select
+                        value={imageSize}
+                        onChange={(e) => updateOption('imageSize', e.target.value)}
+                        className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded-md text-white text-sm"
+                        disabled={isGenerating}
+                      >
+                        <option value="1K">1K (1024px)</option>
+                        <option value="2K">2K (2048px)</option>
+                      </select>
+                    </div>
+                  </div>
+                  {/* Output preview indicator */}
+                  <div className="flex items-center justify-center gap-3">
+                    <span className="text-xs text-white/50">Output:</span>
+                    <div
+                      className="border border-white/30 bg-white/10"
+                      style={{
+                        width: aspectRatio === '16:9' ? 48 : aspectRatio === '9:16' ? 27 : aspectRatio === '4:3' ? 40 : aspectRatio === '3:4' ? 30 : 36,
+                        height: aspectRatio === '16:9' ? 27 : aspectRatio === '9:16' ? 48 : aspectRatio === '4:3' ? 30 : aspectRatio === '3:4' ? 40 : 36,
+                      }}
+                    />
+                    <span className="text-xs text-white/50">{imageSize === '2K' ? '2048px' : '1024px'}</span>
+                  </div>
+                </div>
+              )}
 
               {/* Quota display */}
               {!quotaLoading && quota && (
