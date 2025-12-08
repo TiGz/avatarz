@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import { StyleOption } from '@/types'
 import { GeneratePromptPreview } from '../GeneratePromptPreview'
 import { StyleBrowserModal } from '../StyleBrowserModal'
-import { isBannerFormat, BANNER_FORMATS } from '@/lib/bannerFormats'
+import { isBannerFormat } from '@/lib/bannerFormats'
 
 interface GenerateStepProps {
   wizard: WizardHook
