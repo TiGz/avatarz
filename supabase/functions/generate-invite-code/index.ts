@@ -97,6 +97,17 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Parse maxUses from request body (default 1, max 50)
+    let maxUses = 1
+    try {
+      const body = await req.json()
+      if (body.maxUses !== undefined) {
+        maxUses = Math.min(50, Math.max(1, parseInt(body.maxUses) || 1))
+      }
+    } catch {
+      // No body or invalid JSON, use default
+    }
+
     // Create invite with 7-day expiry
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 7)
@@ -107,7 +118,8 @@ Deno.serve(async (req) => {
         code: code,
         created_by: user.id,
         expires_at: expiresAt.toISOString(),
-        tier_granted: tierGranted
+        tier_granted: tierGranted,
+        max_uses: maxUses
       })
       .select()
       .single()
@@ -128,6 +140,7 @@ Deno.serve(async (req) => {
       code: invite.code,
       url: inviteUrl,
       expires_at: invite.expires_at,
+      max_uses: invite.max_uses,
       quota: {
         used: quotaData.used + 1,
         limit: quotaData.limit,

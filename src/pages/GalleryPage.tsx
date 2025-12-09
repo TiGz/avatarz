@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { useGenerations } from '@/hooks/useGenerations'
-import { usePhotos } from '@/hooks/usePhotos'
+import { useAuth } from '@/hooks/useAuth'
 import { AvatarCard } from '@/components/gallery/AvatarCard'
 import { AvatarModal } from '@/components/gallery/AvatarModal'
 import { Generation } from '@/types'
 import { Sparkles, RefreshCw, Loader2, ArrowLeft } from 'lucide-react'
 import { Header } from '@/components/ui/Header'
+import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +24,7 @@ import {
 
 export function GalleryPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const {
     generations,
     totalCount,
@@ -34,7 +37,56 @@ export function GalleryPage() {
     ensureFullUrl,
     refresh,
   } = useGenerations()
-  const { copyAvatarToPhotos } = usePhotos()
+
+  // Copy avatar to photo library (inlined to avoid usePhotos triggering photo fetches)
+  const copyAvatarToPhotos = async (generation: Generation): Promise<boolean> => {
+    if (!user) {
+      toast.error('Please sign in to copy photos')
+      return false
+    }
+
+    try {
+      // Download from avatars bucket
+      const { data: blob, error: downloadError } = await supabase.storage
+        .from('avatars')
+        .download(generation.output_storage_path)
+
+      if (downloadError || !blob) {
+        throw new Error('Failed to download avatar')
+      }
+
+      // Upload to input-photos bucket
+      const timestamp = Date.now()
+      const newPath = `${user.id}/${timestamp}_avatar_copy.png`
+      const { error: uploadError } = await supabase.storage
+        .from('input-photos')
+        .upload(newPath, blob, { contentType: 'image/png' })
+
+      if (uploadError) {
+        throw new Error('Failed to upload to photo library')
+      }
+
+      // Create photos record
+      const { error: dbError } = await supabase
+        .from('photos')
+        .insert({
+          user_id: user.id,
+          storage_path: newPath,
+          filename: `avatar_copy_${timestamp}.png`,
+          mime_type: 'image/png',
+          file_size: blob.size,
+        })
+
+      if (dbError) throw dbError
+
+      toast.success('Avatar copied to photo library')
+      return true
+    } catch (error) {
+      console.error('Error copying avatar to photos:', error)
+      toast.error('Failed to copy avatar')
+      return false
+    }
+  }
   const [selectedGenerationId, setSelectedGenerationId] = useState<string | null>(null)
 
   // Get the selected generation from the list (so it updates when URL is fetched)
@@ -125,8 +177,7 @@ export function GalleryPage() {
   }
 
   const handleCopyToPhotos = async (generation: Generation): Promise<boolean> => {
-    const photo = await copyAvatarToPhotos(generation)
-    return photo !== null
+    return copyAvatarToPhotos(generation)
   }
 
   const confirmDelete = async () => {

@@ -5,6 +5,7 @@ interface InviteResult {
   code: string
   url: string
   expires_at: string
+  max_uses: number
   quota: { used: number; limit: number; remaining: number }
 }
 
@@ -12,7 +13,7 @@ export function useCreateInvite() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const createInvite = async (): Promise<InviteResult | null> => {
+  const createInvite = async (maxUses: number = 1): Promise<InviteResult | null> => {
     setLoading(true)
     setError(null)
 
@@ -30,7 +31,8 @@ export function useCreateInvite() {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json'
-          }
+          },
+          body: JSON.stringify({ maxUses })
         }
       )
 

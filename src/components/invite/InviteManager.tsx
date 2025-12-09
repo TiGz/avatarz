@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { useInviteQuota } from '@/hooks/useInviteQuota'
 import { useCreateInvite } from '@/hooks/useCreateInvite'
 import { useMyInviteCodes } from '@/hooks/useMyInviteCodes'
@@ -26,6 +28,7 @@ export function InviteManager() {
   const { createInvite, loading: creating } = useCreateInvite()
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(0)
+  const [maxUses, setMaxUses] = useState(1)
 
   // Pagination
   const totalPages = Math.ceil(invites.length / INVITES_PER_PAGE)
@@ -35,12 +38,14 @@ export function InviteManager() {
   }, [invites, currentPage])
 
   const handleCreateInvite = async () => {
-    const result = await createInvite()
+    const result = await createInvite(maxUses)
     if (result) {
-      toast.success('Invite link created!')
+      const usesText = maxUses > 1 ? ` (${maxUses} uses)` : ''
+      toast.success(`Invite link created${usesText}!`)
       refreshQuota()
       refreshInvites()
       setCurrentPage(0) // Reset to first page to show new invite
+      setMaxUses(1) // Reset to default
       // Auto-copy the new invite URL
       await navigator.clipboard.writeText(result.url)
       setCopiedCode(result.code)
@@ -166,19 +171,40 @@ export function InviteManager() {
         </div>
       )}
 
-      {/* Create new invite button */}
-      <Button
-        onClick={handleCreateInvite}
-        disabled={creating || (quota?.limit !== -1 && quota?.remaining === 0)}
-        className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-      >
-        {creating ? (
-          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-        ) : (
-          <Plus className="h-4 w-4 mr-2" />
-        )}
-        {creating ? 'Creating...' : 'Create New Invite Link'}
-      </Button>
+      {/* Create new invite section */}
+      <div className="space-y-3 p-4 rounded-lg bg-white/5 border border-white/10">
+        <div className="space-y-2">
+          <Label htmlFor="maxUses" className="text-sm text-gray-300">
+            Max Uses
+          </Label>
+          <div className="flex items-center gap-3">
+            <Input
+              id="maxUses"
+              type="number"
+              min={1}
+              max={50}
+              value={maxUses}
+              onChange={(e) => setMaxUses(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
+              className="w-24 bg-white/5 border-white/10"
+            />
+            <span className="text-xs text-gray-500">
+              How many people can use this code (1-50)
+            </span>
+          </div>
+        </div>
+        <Button
+          onClick={handleCreateInvite}
+          disabled={creating || (quota?.limit !== -1 && quota?.remaining === 0)}
+          className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+        >
+          {creating ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : (
+            <Plus className="h-4 w-4 mr-2" />
+          )}
+          {creating ? 'Creating...' : `Create Invite Link${maxUses > 1 ? ` (${maxUses} uses)` : ''}`}
+        </Button>
+      </div>
 
       {quota?.limit !== -1 && quota?.remaining === 0 && (
         <p className="text-sm text-amber-400 text-center">
@@ -207,14 +233,15 @@ export function InviteManager() {
           <div className="space-y-2">
             {paginatedInvites.map((invite) => {
               const expired = isExpired(invite.invite_expires_at)
-              const redeemed = invite.invite_is_redeemed
-              const isActive = !expired && !redeemed
+              const fullyUsed = invite.invite_times_used >= invite.invite_max_uses
+              const isActive = !expired && !fullyUsed
+              const usageText = `${invite.invite_times_used}/${invite.invite_max_uses} used`
 
               return (
                 <div
                   key={invite.invite_id}
                   className={`p-3 rounded-lg border ${
-                    redeemed
+                    fullyUsed
                       ? 'bg-green-500/5 border-green-500/20'
                       : expired
                       ? 'bg-gray-500/5 border-gray-500/20'
@@ -224,26 +251,29 @@ export function InviteManager() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-lg ${
-                        redeemed
+                        fullyUsed
                           ? 'bg-green-500/10'
                           : expired
                           ? 'bg-gray-500/10'
                           : 'bg-purple-500/10'
                       }`}>
-                        {redeemed ? (
+                        {fullyUsed ? (
                           <CheckCircle className="h-4 w-4 text-green-400" />
                         ) : (
                           <LinkIcon className={`h-4 w-4 ${expired ? 'text-gray-400' : 'text-purple-400'}`} />
                         )}
                       </div>
                       <div>
-                        <div className="font-mono text-sm text-white">
+                        <div className="font-mono text-sm text-white flex items-center gap-2">
                           {invite.invite_code}
+                          <span className={`text-xs font-normal ${
+                            fullyUsed ? 'text-green-400' : 'text-gray-500'
+                          }`}>
+                            {usageText}
+                          </span>
                         </div>
                         <div className="text-xs text-gray-400">
-                          {redeemed ? (
-                            <>Redeemed by {invite.invite_redeemed_email}</>
-                          ) : expired ? (
+                          {expired ? (
                             <>Expired {formatDate(invite.invite_expires_at)}</>
                           ) : (
                             <>Expires {formatDate(invite.invite_expires_at)}</>
@@ -267,13 +297,13 @@ export function InviteManager() {
                       </Button>
                     )}
 
-                    {redeemed && (
+                    {fullyUsed && (
                       <span className="text-xs text-green-400 font-medium">
-                        Redeemed
+                        Complete
                       </span>
                     )}
 
-                    {expired && !redeemed && (
+                    {expired && !fullyUsed && (
                       <span className="text-xs text-gray-500">
                         Expired
                       </span>

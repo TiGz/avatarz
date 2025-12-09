@@ -51,30 +51,49 @@ export function useGenerations() {
       }
 
       // Build URLs - thumbnails are public, full-res needs signing on demand
-      // For items without thumbnails (legacy), we'll fetch full-res URL
-      const generationsWithUrls = await Promise.all(
-        (data || []).map(async (gen) => {
-          if (gen.thumbnail_storage_path) {
-            // Has thumbnail - use public URL
-            return {
-              ...gen,
-              thumbnailUrl: getPublicThumbnailUrl(gen.thumbnail_storage_path),
-              url: undefined,
+      const items = data || []
+
+      // Find legacy items without thumbnails
+      const legacyItems = items.filter((g) => !g.thumbnail_storage_path)
+
+      // Batch fetch signed URLs for legacy items (single API call)
+      let legacyUrlMap: Record<string, string> = {}
+      if (legacyItems.length > 0) {
+        console.log('[useGenerations] Batch fetching URLs for', legacyItems.length, 'legacy items')
+        const { data: signedUrls } = await supabase.storage
+          .from('avatars')
+          .createSignedUrls(
+            legacyItems.map((g) => g.output_storage_path),
+            3600
+          )
+        if (signedUrls) {
+          signedUrls.forEach((result, index) => {
+            if (result.signedUrl) {
+              legacyUrlMap[legacyItems[index].id] = result.signedUrl
             }
-          } else {
-            // Legacy item without thumbnail - fetch full-res URL
-            console.log('[useGenerations] Legacy item without thumbnail:', gen.id)
-            const { data: urlData } = await supabase.storage
-              .from('avatars')
-              .createSignedUrl(gen.output_storage_path, 3600)
-            return {
-              ...gen,
-              thumbnailUrl: urlData?.signedUrl,
-              url: urlData?.signedUrl,
-            }
+          })
+        }
+      }
+
+      // Map all items with their URLs
+      const generationsWithUrls = items.map((gen) => {
+        if (gen.thumbnail_storage_path) {
+          // Has thumbnail - use public URL
+          return {
+            ...gen,
+            thumbnailUrl: getPublicThumbnailUrl(gen.thumbnail_storage_path),
+            url: undefined,
           }
-        })
-      )
+        } else {
+          // Legacy item - use batched signed URL
+          const signedUrl = legacyUrlMap[gen.id]
+          return {
+            ...gen,
+            thumbnailUrl: signedUrl,
+            url: signedUrl,
+          }
+        }
+      })
 
       if (append) {
         setGenerations((prev) => [...prev, ...generationsWithUrls])

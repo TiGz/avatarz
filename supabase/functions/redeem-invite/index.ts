@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
 
     const { data: invite } = await supabaseAdmin
       .from('invite_codes')
-      .select('code, expires_at, is_redeemed')
+      .select('code, expires_at, max_uses, times_used')
       .eq('code', code.toUpperCase())
       .single()
 
@@ -42,8 +42,8 @@ Deno.serve(async (req) => {
       })
     }
 
-    if (invite.is_redeemed) {
-      return new Response(JSON.stringify({ valid: false, error: 'Invite already used' }), {
+    if (invite.times_used >= invite.max_uses) {
+      return new Response(JSON.stringify({ valid: false, error: 'All invite slots have been used' }), {
         status: 410,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
@@ -56,7 +56,10 @@ Deno.serve(async (req) => {
       })
     }
 
-    return new Response(JSON.stringify({ valid: true }), {
+    return new Response(JSON.stringify({
+      valid: true,
+      remaining: invite.max_uses - invite.times_used
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
@@ -153,11 +156,9 @@ Deno.serve(async (req) => {
       if (inviteError) {
         console.error('Invite error:', inviteError)
 
-        // Rollback: unset the redeemed_email since magic link failed
-        await supabaseAdmin
-          .from('invite_codes')
-          .update({ redeemed_email: null })
-          .eq('code', normalizedCode)
+        // Note: The slot is consumed even if magic link fails. This is simpler
+        // than trying to rollback, and prevents abuse (repeatedly failing sends
+        // wouldn't exhaust the code).
 
         // Check if it's because user already exists
         if (inviteError.message.includes('already been registered')) {

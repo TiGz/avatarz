@@ -197,11 +197,11 @@ export interface InviteQuota {
 export interface InviteCode {
   invite_id: string
   invite_code: string
-  invite_created_at: string
+  invite_max_uses: number
+  invite_times_used: number
+  invite_tier_granted: string
   invite_expires_at: string
-  invite_is_redeemed: boolean
-  invite_redeemed_email: string | null
-  invite_redeemed_at: string | null
+  invite_created_at: string
 }
 
 // User tier types
