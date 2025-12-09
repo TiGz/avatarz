@@ -282,14 +282,13 @@ interface UserQuota {
   is_admin: boolean
 }
 
-// Stored thought signatures format
+// Stored thought signatures format - only stores signatures, not image data
+// Image data is fetched from storage when rebuilding conversation for edits
 interface StoredThoughtSignatures {
   parts: Array<{
     type: 'text' | 'image'
     signature: string
-    // For image parts, store the image data to rebuild conversation
-    imageData?: string
-    mimeType?: string
+    mimeType?: string  // Keep mime type for image parts (small, needed for reconstruction)
   }>
   // Store the original prompt for context rebuilding
   originalPrompt?: string
@@ -1016,6 +1015,7 @@ Deno.serve(async (req) => {
     // Check if this is an edit request - fetch parent generation and build conversation history
     let parentThoughtSignatures: StoredThoughtSignatures | null = null
     let parentGenerationId: string | null = null
+    let parentImageData: string | null = null  // Base64 image fetched from storage for edit mode
 
     if (validatedReq.editGenerationId && validatedReq.editPrompt) {
       console.log('Edit mode: fetching parent generation', validatedReq.editGenerationId)
@@ -1047,7 +1047,34 @@ Deno.serve(async (req) => {
 
       parentThoughtSignatures = parent.thought_signatures as StoredThoughtSignatures
       parentGenerationId = parent.id
-      console.log('Edit mode enabled, parent has thought signatures')
+
+      // Fetch the parent image from storage for rebuilding conversation
+      // (We no longer store imageData in thought_signatures to save DB space)
+      console.log('Fetching parent image from storage:', parent.output_storage_path)
+      const { data: imageBlob, error: downloadError } = await supabaseAdmin.storage
+        .from('avatars')
+        .download(parent.output_storage_path)
+
+      if (downloadError || !imageBlob) {
+        console.error('Failed to download parent image:', downloadError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to load parent avatar for editing' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Convert blob to base64
+      const arrayBuffer = await imageBlob.arrayBuffer()
+      const uint8Array = new Uint8Array(arrayBuffer)
+      // Use chunked encoding to avoid stack overflow on large images
+      let binary = ''
+      const chunkSize = 8192
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.subarray(i, i + chunkSize)
+        binary += String.fromCharCode(...chunk)
+      }
+      parentImageData = btoa(binary)
+      console.log('Edit mode enabled, fetched parent image from storage')
     }
 
     const isEditMode = parentThoughtSignatures !== null
@@ -1056,15 +1083,17 @@ Deno.serve(async (req) => {
     type GeminiRequestPart = { text?: string; inlineData?: { mimeType: string; data: string }; thoughtSignature?: string }
     let geminiContents: Array<{ role?: string; parts: GeminiRequestPart[] }>
 
-    if (isEditMode && parentThoughtSignatures) {
+    if (isEditMode && parentThoughtSignatures && parentImageData) {
       // Multi-turn edit: rebuild conversation history with thought signatures
+      // Image data is fetched from storage (not stored in DB) to save space
       const storedSigs = parentThoughtSignatures
 
       // Build the original model response with thought signatures
+      // Use parentImageData (fetched from storage) for image parts
       const modelParts: GeminiRequestPart[] = storedSigs.parts.map(part => {
-        if (part.type === 'image' && part.imageData && part.mimeType) {
+        if (part.type === 'image' && part.mimeType) {
           return {
-            inlineData: { mimeType: part.mimeType, data: part.imageData },
+            inlineData: { mimeType: part.mimeType, data: parentImageData! },
             thoughtSignature: part.signature
           }
         } else {
@@ -1093,7 +1122,7 @@ Deno.serve(async (req) => {
         }
       ]
 
-      console.log('Built multi-turn conversation for edit')
+      console.log('Built multi-turn conversation for edit (image fetched from storage)')
     } else {
       // Standard generation: single turn
       const geminiParts: GeminiRequestPart[] = []
@@ -1212,6 +1241,7 @@ Deno.serve(async (req) => {
     }
 
     // Extract thought signatures from response for multi-turn editing support
+    // Only store signatures (not image data) - image is fetched from storage when editing
     const responseParts = result.candidates?.[0]?.content?.parts || []
     const extractedThoughtSignatures: StoredThoughtSignatures = {
       parts: responseParts
@@ -1221,8 +1251,7 @@ Deno.serve(async (req) => {
             return {
               type: 'image' as const,
               signature: part.thoughtSignature!,
-              imageData: part.inlineData.data,
-              mimeType: part.inlineData.mimeType
+              mimeType: part.inlineData.mimeType  // Keep mime type, but NOT imageData
             }
           } else {
             return {
