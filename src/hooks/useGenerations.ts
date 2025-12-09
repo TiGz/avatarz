@@ -20,6 +20,7 @@ export function useGenerations() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const pageRef = useRef(0)
+  const fetchingRef = useRef(false) // Prevent duplicate fetches from StrictMode
 
   const fetchGenerations = useCallback(async (page: number, append = false) => {
     if (!user) {
@@ -34,9 +35,26 @@ export function useGenerations() {
 
       console.log('[useGenerations] Fetching page', page, 'range', from, '-', to)
 
+      // Only select columns needed for gallery display (excludes large thought_signatures, full_prompt, etc.)
       const { data, error, count } = await supabase
         .from('generations')
-        .select('*', { count: 'exact' })
+        .select(`
+          id,
+          user_id,
+          input_photo_id,
+          output_storage_path,
+          thumbnail_storage_path,
+          style,
+          crop_type,
+          name_text,
+          name_placement,
+          custom_style,
+          custom_placement,
+          is_public,
+          share_url,
+          created_at,
+          metadata
+        `, { count: 'exact' })
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .range(from, to)
@@ -76,14 +94,14 @@ export function useGenerations() {
       }
 
       // Map all items with their URLs
-      const generationsWithUrls = items.map((gen) => {
+      const generationsWithUrls: Generation[] = items.map((gen) => {
         if (gen.thumbnail_storage_path) {
           // Has thumbnail - use public URL
           return {
             ...gen,
             thumbnailUrl: getPublicThumbnailUrl(gen.thumbnail_storage_path),
             url: undefined,
-          }
+          } as Generation
         } else {
           // Legacy item - use batched signed URL
           const signedUrl = legacyUrlMap[gen.id]
@@ -91,7 +109,7 @@ export function useGenerations() {
             ...gen,
             thumbnailUrl: signedUrl,
             url: signedUrl,
-          }
+          } as Generation
         }
       })
 
@@ -111,12 +129,16 @@ export function useGenerations() {
     }
   }, [user])
 
-  // Initial load
+  // Initial load - use fetchingRef to prevent StrictMode double-fetch
   useEffect(() => {
+    if (fetchingRef.current) return
+    fetchingRef.current = true
     pageRef.current = 0
     setLoading(true)
     setHasMore(true)
-    fetchGenerations(0)
+    fetchGenerations(0).finally(() => {
+      fetchingRef.current = false
+    })
   }, [fetchGenerations])
 
   const loadMore = useCallback(async () => {

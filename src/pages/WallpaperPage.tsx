@@ -110,15 +110,24 @@ export function WallpaperPage() {
       if (!generationId || !user) return
 
       try {
+        // Only select columns needed (excludes large thought_signatures, full_prompt, etc.)
         const { data, error } = await supabase
           .from('generations')
-          .select('*')
+          .select(`
+            id,
+            user_id,
+            output_storage_path,
+            thumbnail_storage_path,
+            style,
+            crop_type,
+            metadata
+          `)
           .eq('id', generationId)
           .eq('user_id', user.id)
           .single()
 
         if (error) throw error
-        setSourceGen(data)
+        setSourceGen(data as Generation)
 
         // Get signed URL for the image
         const { data: urlData } = await supabase.storage
