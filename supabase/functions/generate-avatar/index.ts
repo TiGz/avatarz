@@ -197,7 +197,8 @@ SAFE ZONE REQUIREMENTS:
 - Leave the LEFT ~70% for background/text elements
 - The top and bottom zones should contain ONLY background elements (sky, ground, gradients) that can be safely cropped
 - Do NOT place any faces, text, or focal points near the top or bottom edges
-- Show the complete subject (head to toe) scaled to fit entirely within the safe center band`
+- Show the complete subject (head to toe) scaled to fit entirely within the safe center band
+IMPORTANT: Create ONE continuous, unified composition—do NOT create distinct horizontal bands or sharp divisions between zones. The background should flow naturally as a single cohesive scene.`
 }
 
 // Age modification prompts

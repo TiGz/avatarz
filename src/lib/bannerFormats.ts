@@ -36,7 +36,8 @@ This image will be cropped to a wide banner format.
 The TOP ${Math.round((100 - safeZonePercent) / 2)}% and BOTTOM ${Math.round((100 - safeZonePercent) / 2)}% of the image will be REMOVED.
 Keep ALL important content (faces, text, key elements) strictly within the CENTER ${safeZonePercent}% vertical band.
 The top and bottom zones should contain ONLY background elements (sky, ground, gradients) that can be safely cropped.
-Do NOT place any faces, text, or focal points near the top or bottom edges.`
+Do NOT place any faces, text, or focal points near the top or bottom edges.
+IMPORTANT: Create ONE continuous, unified composition—do NOT create distinct horizontal bands or sharp divisions between zones. The background should flow naturally as a single cohesive scene.`
     : '' // YouTube is 16:9, no cropping needed
 
   return `Transform this into a wide social media banner.

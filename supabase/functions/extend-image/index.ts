@@ -101,7 +101,8 @@ This image will be cropped to a ${banner.width}×${banner.height} banner.
 The TOP ${cropPercent}% and BOTTOM ${cropPercent}% of the image will be REMOVED.
 Keep ALL important content (faces, text, key elements) strictly within the CENTER ${banner.safeZonePercent}% vertical band.
 The top and bottom zones should contain ONLY background elements (sky, ground, gradients) that can be safely cropped.
-Do NOT place any faces, text, or focal points near the top or bottom edges.`
+Do NOT place any faces, text, or focal points near the top or bottom edges.
+IMPORTANT: Create ONE continuous, unified composition—do NOT create distinct horizontal bands or sharp divisions between zones. The background should flow naturally as a single cohesive scene.`
 }
 
 // ============================================================================
