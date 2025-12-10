@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { Header } from '@/components/ui/Header'
 import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -40,6 +41,7 @@ export function EditPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showOptions, setShowOptions] = useState(false)
+  const [progress, setProgress] = useState(0)
 
   // Read options from URL params with defaults
   const aspectRatio = (searchParams.get('aspectRatio') as AspectRatio) || '1:1'
@@ -87,6 +89,16 @@ export function EditPage() {
     fetchGeneration()
   }, [id, user, navigate])
 
+  // Progress animation during generation
+  useEffect(() => {
+    if (isGenerating) {
+      const interval = setInterval(() => {
+        setProgress((p) => Math.min(p + 2, 90))
+      }, 500)
+      return () => clearInterval(interval)
+    }
+  }, [isGenerating])
+
   const handleEdit = async () => {
     if (!editPrompt.trim() || !generation || !user) return
 
@@ -98,6 +110,7 @@ export function EditPage() {
 
     setIsGenerating(true)
     setError(null)
+    setProgress(0)
 
     try {
       const { data: sessionData } = await supabase.auth.getSession()
@@ -139,6 +152,7 @@ export function EditPage() {
 
       // Navigate to the new generation's edit page
       if (result.generationId) {
+        setProgress(100)
         toast.success('Edit generated!')
         // Clear the prompt and navigate to new generation, preserving options
         setEditPrompt('')
@@ -202,6 +216,36 @@ export function EditPage() {
             Back to Gallery
           </Button>
         </main>
+      </div>
+    )
+  }
+
+  // Generating state - full screen loading
+  if (isGenerating) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black">
+        <Header />
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="space-y-8 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500">
+              <Loader2 className="w-10 h-10 text-white animate-spin" />
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                Applying your edit
+              </h2>
+              <p className="text-gray-400">
+                This usually takes about 30 seconds
+              </p>
+            </div>
+
+            <div className="max-w-xs mx-auto">
+              <Progress value={progress} className="h-2" />
+              <p className="text-gray-500 text-sm mt-2">{progress}%</p>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }

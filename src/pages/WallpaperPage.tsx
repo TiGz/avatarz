@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Header } from '@/components/ui/Header'
 import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { supabase } from '@/lib/supabase'
@@ -68,6 +69,7 @@ export function WallpaperPage() {
   // Generation state
   const [generating, setGenerating] = useState(false)
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
+  const [progress, setProgress] = useState(0)
 
   // Screen resolution detection
   const screenResolution = useMemo(() => {
@@ -103,6 +105,16 @@ export function WallpaperPage() {
       setPrompt(WALLPAPER_PROMPT)
     }
   }, [selectedRatio, hasEditedPrompt])
+
+  // Progress animation during generation
+  useEffect(() => {
+    if (generating) {
+      const interval = setInterval(() => {
+        setProgress((p) => Math.min(p + 2, 90))
+      }, 500)
+      return () => clearInterval(interval)
+    }
+  }, [generating])
 
   // Fetch source generation
   useEffect(() => {
@@ -161,6 +173,7 @@ export function WallpaperPage() {
 
     setGenerating(true)
     setGeneratedImage(null)
+    setProgress(0)
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -195,6 +208,7 @@ export function WallpaperPage() {
         throw new Error(result.error || 'Failed to generate wallpaper')
       }
 
+      setProgress(100)
       setGeneratedImage(result.image)
       toast.success('Wallpaper generated!')
     } catch (error) {
@@ -260,6 +274,36 @@ export function WallpaperPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Gallery
           </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Generating state - full screen loading
+  if (generating) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black">
+        <Header showBack />
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="space-y-8 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500">
+              <Loader2 className="w-10 h-10 text-white animate-spin" />
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                Creating your wallpaper
+              </h2>
+              <p className="text-gray-400">
+                This usually takes about 30 seconds
+              </p>
+            </div>
+
+            <div className="max-w-xs mx-auto">
+              <Progress value={progress} className="h-2" />
+              <p className="text-gray-500 text-sm mt-2">{progress}%</p>
+            </div>
+          </div>
         </div>
       </div>
     )
