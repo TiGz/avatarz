@@ -173,25 +173,28 @@ export function InviteManager() {
 
       {/* Create new invite section */}
       <div className="space-y-3 p-4 rounded-lg bg-white/5 border border-white/10">
-        <div className="space-y-2">
-          <Label htmlFor="maxUses" className="text-sm text-gray-300">
-            Max Uses
-          </Label>
-          <div className="flex items-center gap-3">
-            <Input
-              id="maxUses"
-              type="number"
-              min={1}
-              max={50}
-              value={maxUses}
-              onChange={(e) => setMaxUses(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
-              className="w-24 bg-white/5 border-white/10"
-            />
-            <span className="text-xs text-gray-500">
-              How many people can use this code (1-50)
-            </span>
+        {/* Only admins can create multi-use invite codes */}
+        {quota?.tier === 'admin' && (
+          <div className="space-y-2">
+            <Label htmlFor="maxUses" className="text-sm text-gray-300">
+              Max Uses
+            </Label>
+            <div className="flex items-center gap-3">
+              <Input
+                id="maxUses"
+                type="number"
+                min={1}
+                max={50}
+                value={maxUses}
+                onChange={(e) => setMaxUses(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
+                className="w-24 bg-white/5 border-white/10"
+              />
+              <span className="text-xs text-gray-500">
+                How many people can use this code (1-50)
+              </span>
+            </div>
           </div>
-        </div>
+        )}
         <Button
           onClick={handleCreateInvite}
           disabled={creating || (quota?.limit !== -1 && quota?.remaining === 0)}
