@@ -384,8 +384,8 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
     throw new Error('Invalid style format')
   }
 
-  // Must have either a style ID or customStyle
-  if (!req.style && !req.customStyle) {
+  // Must have either a style ID or customStyle (unless in edit mode which uses parent context)
+  if (!req.style && !req.customStyle && !isEditMode) {
     throw new Error('Either style or customStyle is required')
   }
 
