@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 
 type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
-type ImageSize = '1K' | '2K'
+type ImageSize = '500' | '1K' | '2K'
 
 export function EditPage() {
   const { id } = useParams<{ id: string }>()
@@ -175,16 +175,11 @@ export function EditPage() {
     if (!imageUrl || !generation) return
 
     try {
-      const response = await fetch(imageUrl)
-      const blob = await response.blob()
-      const blobUrl = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = blobUrl
-      a.download = `avatar_${generation.style}_edited.png`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(blobUrl)
-      document.body.removeChild(a)
+      // Use compression utility with default PNG format
+      const { downloadImage } = await import('@/lib/imageCompression')
+      await downloadImage(imageUrl, `avatar_${generation.style}_edited.png`, {
+        format: 'png'
+      })
       toast.success('Download started!')
     } catch (err) {
       console.error('Download error:', err)
@@ -338,6 +333,7 @@ export function EditPage() {
                         className="w-full px-3 py-2 bg-black/40 border border-white/20 rounded-md text-white text-sm"
                         disabled={isGenerating}
                       >
+                        <option value="500">500px (&lt;1MB)</option>
                         <option value="1K">1K (1024px)</option>
                         <option value="2K">2K (2048px)</option>
                       </select>
@@ -353,7 +349,7 @@ export function EditPage() {
                         height: aspectRatio === '16:9' ? 27 : aspectRatio === '9:16' ? 48 : aspectRatio === '4:3' ? 30 : aspectRatio === '3:4' ? 40 : 36,
                       }}
                     />
-                    <span className="text-xs text-white/50">{imageSize === '2K' ? '2048px' : '1024px'}</span>
+                    <span className="text-xs text-white/50">{imageSize === '2K' ? '2048px' : imageSize === '500' ? '500px' : '1024px'}</span>
                   </div>
                 </div>
               )}

@@ -245,7 +245,7 @@ interface GenerateAvatarRequest {
   // Custom mode options
   preserveFacialIdentity?: boolean  // Whether to add face-preservation system prompt
   aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
-  imageSize?: '1K' | '2K'
+  imageSize?: '500' | '1K' | '2K'
 
   // Edit mode (optional) - for editing existing avatars
   editGenerationId?: string   // Parent generation to edit
@@ -473,7 +473,7 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
   }
 
   // Validate image size (for custom mode)
-  const validImageSizes = ['1K', '2K']
+  const validImageSizes = ['500', '1K', '2K']
   if (req.imageSize && !validImageSizes.includes(req.imageSize)) {
     throw new Error(`Invalid image size. Must be one of: ${validImageSizes.join(', ')}`)
   }
