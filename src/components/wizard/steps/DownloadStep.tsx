@@ -270,7 +270,7 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
             {/* Format selection */}
             <div className="space-y-3">
               <Label>Format</Label>
-              <RadioGroup value={downloadFormat} onValueChange={(v) => handleFormatChange(v as 'png' | 'jpeg')}>
+              <RadioGroup value={downloadFormat} onValueChange={(v: string) => handleFormatChange(v as 'png' | 'jpeg')}>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="png" id="png" />
                   <Label htmlFor="png" className="font-normal cursor-pointer">
@@ -295,7 +295,7 @@ export function DownloadStep({ wizard }: DownloadStepProps) {
                 </div>
                 <Slider
                   value={[jpegQuality]}
-                  onValueChange={([value]) => handleQualityChange(value)}
+                  onValueChange={([value]: number[]) => handleQualityChange(value)}
                   min={50}
                   max={100}
                   step={5}

@@ -299,7 +299,6 @@ export function GalleryPage() {
         <AvatarModal
           generation={selectedGeneration}
           onClose={() => setSelectedGenerationId(null)}
-          onDownload={downloadAvatar}
           onDelete={handleDeleteFromModal}
           onCopyToPhotos={handleCopyToPhotos}
           deleting={deleting}

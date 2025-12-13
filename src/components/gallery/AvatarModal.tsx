@@ -31,7 +31,6 @@ import { Slider } from '@/components/ui/slider'
 interface AvatarModalProps {
   generation: Generation | null
   onClose: () => void
-  onDownload: (generation: Generation) => void
   onDelete?: (generation: Generation) => Promise<boolean>
   onCopyToPhotos?: (generation: Generation) => Promise<boolean>
   deleting?: boolean
@@ -46,7 +45,6 @@ interface AvatarModalProps {
 export function AvatarModal({
   generation,
   onClose,
-  onDownload,
   onDelete,
   onCopyToPhotos,
   deleting = false,
@@ -262,6 +260,7 @@ export function AvatarModal({
   }
 
   return (
+    <>
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
@@ -518,122 +517,123 @@ export function AvatarModal({
             </div>
           </div>
         </motion.div>
-
-        {/* Delete confirmation dialog */}
-        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Avatar?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will permanently delete this avatar. This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDelete}
-                disabled={deleting}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                {deleting ? 'Deleting...' : 'Delete'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Download options dialog */}
-        <Dialog open={showDownloadOptions} onOpenChange={setShowDownloadOptions}>
-          <DialogContent className="bg-gray-900 border-white/20 text-white">
-            <DialogHeader>
-              <DialogTitle>Download Options</DialogTitle>
-              <DialogDescription className="text-gray-400">
-                Choose format and compression settings
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6 py-4">
-              {/* Format selection */}
-              <div className="space-y-3">
-                <Label>Format</Label>
-                <RadioGroup value={downloadFormat} onValueChange={(v) => setDownloadFormat(v as 'png' | 'jpeg')}>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="png" id="png" />
-                    <Label htmlFor="png" className="font-normal cursor-pointer">
-                      PNG (Lossless, larger file)
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="jpeg" id="jpeg" />
-                    <Label htmlFor="jpeg" className="font-normal cursor-pointer">
-                      JPEG (Compressed, smaller file)
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              {/* JPEG quality slider */}
-              {downloadFormat === 'jpeg' && (
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <Label>Quality</Label>
-                    <span className="text-sm text-gray-400">{jpegQuality}%</span>
-                  </div>
-                  <Slider
-                    value={[jpegQuality]}
-                    onValueChange={([value]) => setJpegQuality(value)}
-                    min={50}
-                    max={100}
-                    step={5}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Smaller file</span>
-                    <span>Better quality</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Estimated file size */}
-              {estimatedSize && (
-                <div className="p-3 bg-white/5 rounded-lg border border-white/10">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-400">Estimated size:</span>
-                    <span className="text-sm font-medium">{estimatedSize}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowDownloadOptions(false)}
-                disabled={isDownloading}
-                className="flex-1 border-white/20 text-white hover:bg-white/10"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleDownloadWithOptions}
-                disabled={isDownloading}
-                className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-              >
-                {isDownloading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Downloading...
-                  </>
-                ) : (
-                  <>
-                    <Download className="mr-2 h-4 w-4" />
-                    Download
-                  </>
-                )}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </motion.div>
     </AnimatePresence>
+
+    {/* Delete confirmation dialog - outside AnimatePresence to avoid click conflicts */}
+    <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Avatar?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete this avatar. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDelete}
+            disabled={deleting}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {deleting ? 'Deleting...' : 'Delete'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* Download options dialog - outside AnimatePresence to avoid click conflicts */}
+    <Dialog open={showDownloadOptions} onOpenChange={setShowDownloadOptions}>
+      <DialogContent className="bg-gray-900 border-white/20 text-white">
+        <DialogHeader>
+          <DialogTitle>Download Options</DialogTitle>
+          <DialogDescription className="text-gray-400">
+            Choose format and compression settings
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          {/* Format selection */}
+          <div className="space-y-3">
+            <Label>Format</Label>
+            <RadioGroup value={downloadFormat} onValueChange={(v: string) => setDownloadFormat(v as 'png' | 'jpeg')}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="png" id="modal-png" />
+                <Label htmlFor="modal-png" className="font-normal cursor-pointer">
+                  PNG (Lossless, larger file)
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="jpeg" id="modal-jpeg" />
+                <Label htmlFor="modal-jpeg" className="font-normal cursor-pointer">
+                  JPEG (Compressed, smaller file)
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* JPEG quality slider */}
+          {downloadFormat === 'jpeg' && (
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <Label>Quality</Label>
+                <span className="text-sm text-gray-400">{jpegQuality}%</span>
+              </div>
+              <Slider
+                value={[jpegQuality]}
+                onValueChange={([value]: number[]) => setJpegQuality(value)}
+                min={50}
+                max={100}
+                step={5}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>Smaller file</span>
+                <span>Better quality</span>
+              </div>
+            </div>
+          )}
+
+          {/* Estimated file size */}
+          {estimatedSize && (
+            <div className="p-3 bg-white/5 rounded-lg border border-white/10">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-400">Estimated size:</span>
+                <span className="text-sm font-medium">{estimatedSize}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setShowDownloadOptions(false)}
+            disabled={isDownloading}
+            className="flex-1 border-white/20 text-white hover:bg-white/10"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDownloadWithOptions}
+            disabled={isDownloading}
+            className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+          >
+            {isDownloading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Downloading...
+              </>
+            ) : (
+              <>
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </>
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  </>
   )
 }
