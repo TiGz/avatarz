@@ -318,7 +318,7 @@ export function AvatarModal({
             </motion.div>
 
             {/* Details */}
-            <div className="w-full sm:w-1/3 p-4 sm:p-6 space-y-3 sm:space-y-4">
+            <div className="w-full sm:w-1/3 p-4 sm:p-6 pb-6 sm:pb-6 space-y-3 sm:space-y-4 overflow-y-auto">
               <h2 className="text-lg sm:text-xl font-bold text-white">Avatar Details</h2>
 
               <div className="space-y-3">
@@ -364,16 +364,8 @@ export function AvatarModal({
                 </div>
               </div>
 
-              {/* Custom style info */}
-              {generation.custom_style && (
-                <div className="p-3 bg-white/5 rounded-lg">
-                  <p className="text-xs text-gray-500 mb-1">Custom Style</p>
-                  <p className="text-sm text-gray-300">{generation.custom_style}</p>
-                </div>
-              )}
-
-              {/* Action buttons */}
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-1 pb-4 sm:pb-0">
+              {/* Action buttons - moved above prompt for mobile accessibility */}
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-1">
                 <Button
                   onClick={() => onDownload(generation)}
                   className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 h-auto py-2"
@@ -437,6 +429,22 @@ export function AvatarModal({
                   </Button>
                 )}
               </div>
+
+              {/* Custom style info - moved below buttons for better mobile UX */}
+              {generation.custom_style && (
+                <div className="p-3 bg-white/5 rounded-lg mt-3">
+                  <p className="text-xs text-gray-500 mb-1">Custom Style</p>
+                  <p className="text-sm text-gray-300 whitespace-pre-wrap break-words">{generation.custom_style}</p>
+                </div>
+              )}
+
+              {/* Full prompt info - if available */}
+              {generation.full_prompt && (
+                <div className="p-3 bg-white/5 rounded-lg mt-3">
+                  <p className="text-xs text-gray-500 mb-1">Full Prompt</p>
+                  <p className="text-sm text-gray-300 whitespace-pre-wrap break-words max-h-60 overflow-y-auto">{generation.full_prompt}</p>
+                </div>
+              )}
             </div>
           </div>
         </motion.div>
