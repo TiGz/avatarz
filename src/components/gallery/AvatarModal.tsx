@@ -6,6 +6,7 @@ import { X, Download, Calendar, Palette, Crop, Type, Loader2, Trash2, Share2, Ch
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { getAspectRatioCss } from '@/lib/aspectRatio'
+import { downloadImage, formatFileSize, compressImage } from '@/lib/imageCompression'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +17,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Slider } from '@/components/ui/slider'
 
 interface AvatarModalProps {
   generation: Generation | null
@@ -50,6 +61,13 @@ export function AvatarModal({
   const [fullLoaded, setFullLoaded] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isCopying, setIsCopying] = useState(false)
+
+  // Download options state
+  const [showDownloadOptions, setShowDownloadOptions] = useState(false)
+  const [downloadFormat, setDownloadFormat] = useState<'png' | 'jpeg'>('png')
+  const [jpegQuality, setJpegQuality] = useState(85)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [estimatedSize, setEstimatedSize] = useState<string | null>(null)
 
   const handleDelete = async () => {
     if (!generation || !onDelete) return
@@ -113,6 +131,58 @@ export function AvatarModal({
     parts.push(generation?.style || 'avatar')
     parts.push('avatar')
     return `${parts.join('-')}.png`
+  }
+
+  // Estimate file size for current settings
+  useEffect(() => {
+    if (!showDownloadOptions || !generation?.url) {
+      setEstimatedSize(null)
+      return
+    }
+
+    let cancelled = false
+
+    async function estimateSize() {
+      try {
+        const blob = await compressImage(generation!.url!, {
+          format: downloadFormat,
+          quality: downloadFormat === 'jpeg' ? jpegQuality / 100 : undefined,
+        })
+        if (!cancelled) {
+          setEstimatedSize(formatFileSize(blob))
+        }
+      } catch (error) {
+        console.error('Failed to estimate size:', error)
+        if (!cancelled) {
+          setEstimatedSize(null)
+        }
+      }
+    }
+
+    estimateSize()
+
+    return () => {
+      cancelled = true
+    }
+  }, [showDownloadOptions, downloadFormat, jpegQuality, generation?.url])
+
+  const handleDownloadWithOptions = async () => {
+    if (!generation?.url) return
+
+    setIsDownloading(true)
+    try {
+      await downloadImage(generation.url, generateFilename(), {
+        format: downloadFormat,
+        quality: downloadFormat === 'jpeg' ? jpegQuality / 100 : undefined,
+      })
+      toast.success('Avatar downloaded!')
+      setShowDownloadOptions(false)
+    } catch (error) {
+      console.error('Download error:', error)
+      toast.error('Failed to download. Try again.')
+    } finally {
+      setIsDownloading(false)
+    }
   }
 
   const handleShare = async () => {
@@ -367,7 +437,7 @@ export function AvatarModal({
               {/* Action buttons - moved above prompt for mobile accessibility */}
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-1">
                 <Button
-                  onClick={() => onDownload(generation)}
+                  onClick={() => setShowDownloadOptions(true)}
                   className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 h-auto py-2"
                 >
                   <span className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
@@ -470,6 +540,99 @@ export function AvatarModal({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Download options dialog */}
+        <Dialog open={showDownloadOptions} onOpenChange={setShowDownloadOptions}>
+          <DialogContent className="bg-gray-900 border-white/20 text-white">
+            <DialogHeader>
+              <DialogTitle>Download Options</DialogTitle>
+              <DialogDescription className="text-gray-400">
+                Choose format and compression settings
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6 py-4">
+              {/* Format selection */}
+              <div className="space-y-3">
+                <Label>Format</Label>
+                <RadioGroup value={downloadFormat} onValueChange={(v) => setDownloadFormat(v as 'png' | 'jpeg')}>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="png" id="png" />
+                    <Label htmlFor="png" className="font-normal cursor-pointer">
+                      PNG (Lossless, larger file)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="jpeg" id="jpeg" />
+                    <Label htmlFor="jpeg" className="font-normal cursor-pointer">
+                      JPEG (Compressed, smaller file)
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {/* JPEG quality slider */}
+              {downloadFormat === 'jpeg' && (
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <Label>Quality</Label>
+                    <span className="text-sm text-gray-400">{jpegQuality}%</span>
+                  </div>
+                  <Slider
+                    value={[jpegQuality]}
+                    onValueChange={([value]) => setJpegQuality(value)}
+                    min={50}
+                    max={100}
+                    step={5}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Smaller file</span>
+                    <span>Better quality</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Estimated file size */}
+              {estimatedSize && (
+                <div className="p-3 bg-white/5 rounded-lg border border-white/10">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Estimated size:</span>
+                    <span className="text-sm font-medium">{estimatedSize}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowDownloadOptions(false)}
+                disabled={isDownloading}
+                className="flex-1 border-white/20 text-white hover:bg-white/10"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDownloadWithOptions}
+                disabled={isDownloading}
+                className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+              >
+                {isDownloading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </motion.div>
     </AnimatePresence>
   )
