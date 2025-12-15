@@ -5,13 +5,27 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Header } from '@/components/ui/Header'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { useUserSettings } from '@/hooks/useUserSettings'
-import { ArrowLeft, User, Eye, EyeOff, Shield, Loader2, Check, Info, PartyPopper } from 'lucide-react'
+import { useDeleteAllData } from '@/hooks/useDeleteAllData'
+import { ArrowLeft, User, Eye, EyeOff, Shield, Loader2, Check, Info, PartyPopper, AlertTriangle, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function SettingsPage() {
   const { settings, loading, updateSettings, upgradeToAdult } = useUserSettings()
+  const { progress, isDeleting, deleteAllData, reset } = useDeleteAllData()
 
   const [defaultName, setDefaultName] = useState('')
   const [isPrivateAccount, setIsPrivateAccount] = useState(false)
@@ -19,6 +33,8 @@ export function SettingsPage() {
   const [privacySaving, setPrivacySaving] = useState(false)
   const [nameChanged, setNameChanged] = useState(false)
   const [ageUpgrading, setAgeUpgrading] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false)
 
   // Initialize form state when settings load
   useEffect(() => {
@@ -34,6 +50,16 @@ export function SettingsPage() {
       setNameChanged(defaultName !== (settings.defaultName || ''))
     }
   }, [defaultName, settings])
+
+  // Reset delete confirmation when dialog closes
+  useEffect(() => {
+    if (!deleteDialogOpen) {
+      setDeleteConfirmed(false)
+      if (progress.phase === 'complete' || progress.phase === 'error') {
+        reset()
+      }
+    }
+  }, [deleteDialogOpen, progress.phase, reset])
 
   const handleSaveName = async () => {
     setNameSaving(true)
@@ -63,6 +89,15 @@ export function SettingsPage() {
     }
   }
 
+  const handleDeleteAllData = async () => {
+    const success = await deleteAllData()
+    if (success) {
+      setTimeout(() => {
+        setDeleteDialogOpen(false)
+      }, 1500)
+    }
+  }
+
   // Check if privacy toggle should be disabled
   const privacyLocked = settings?.ageGroup === 'under_18' || settings?.tier === 'private'
   const privacyLockedReason = settings?.ageGroup === 'under_18'
@@ -70,6 +105,11 @@ export function SettingsPage() {
     : settings?.tier === 'private'
     ? 'Privacy is enforced by your account tier'
     : null
+
+  // Calculate delete progress
+  const totalItems = progress.photosTotal + progress.avatarsTotal
+  const deletedItems = progress.photosDeleted + progress.avatarsDeleted
+  const progressPercent = totalItems > 0 ? Math.round((deletedItems / totalItems) * 100) : 0
 
   if (loading) {
     return (
@@ -263,6 +303,147 @@ export function SettingsPage() {
             )}
           </motion.section>
         )}
+
+        {/* Danger Zone Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-red-950/30 backdrop-blur-sm border border-red-500/20 rounded-2xl p-5"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+              <AlertTriangle className="w-5 h-5 text-red-400" />
+            </div>
+            <div>
+              <h2 className="text-red-400 font-semibold">Danger Zone</h2>
+              <p className="text-gray-400 text-sm">Irreversible actions</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+              <p className="text-red-300 text-sm">
+                Deleting your image data is permanent and cannot be undone.
+                This will remove all your uploaded photos and generated avatars.
+              </p>
+            </div>
+
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete All My Image Data
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="bg-gray-900 border-gray-800">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-white flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-500" />
+                    Delete All Image Data
+                  </AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="text-gray-400 space-y-3">
+                      <p>This will permanently delete:</p>
+                      <ul className="list-disc list-inside space-y-1 text-gray-300">
+                        <li>All your uploaded photos</li>
+                        <li>All your generated avatars</li>
+                        <li>All associated thumbnails</li>
+                      </ul>
+                      <p className="text-red-400 font-medium">
+                        This action cannot be undone.
+                      </p>
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+
+                {/* Progress display when deleting */}
+                {isDeleting && (
+                  <div className="space-y-3 py-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">
+                        {progress.phase === 'fetching' && 'Fetching data...'}
+                        {progress.phase === 'deleting-photos' && `Deleting photos (${progress.photosDeleted}/${progress.photosTotal})`}
+                        {progress.phase === 'deleting-avatars' && `Deleting avatars (${progress.avatarsDeleted}/${progress.avatarsTotal})`}
+                        {progress.phase === 'complete' && 'Complete!'}
+                        {progress.phase === 'error' && 'Error occurred'}
+                      </span>
+                      <span className="text-gray-300 font-medium">{progressPercent}%</span>
+                    </div>
+                    <div className="w-full bg-gray-800 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          progress.phase === 'complete' ? 'bg-green-500' :
+                          progress.phase === 'error' ? 'bg-red-500' : 'bg-purple-500'
+                        }`}
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                    {progress.phase === 'complete' && (
+                      <p className="text-green-400 text-sm text-center">
+                        All data deleted successfully!
+                      </p>
+                    )}
+                    {progress.phase === 'error' && progress.error && (
+                      <p className="text-red-400 text-sm text-center">
+                        {progress.error}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Confirmation checkbox */}
+                {!isDeleting && progress.phase !== 'complete' && (
+                  <div className="flex items-start space-x-3 py-2">
+                    <Checkbox
+                      id="confirm-delete"
+                      checked={deleteConfirmed}
+                      onCheckedChange={(checked) => setDeleteConfirmed(checked === true)}
+                      className="mt-0.5 border-red-500 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
+                    />
+                    <Label
+                      htmlFor="confirm-delete"
+                      className="text-sm text-gray-300 cursor-pointer leading-tight"
+                    >
+                      I understand this is permanent and cannot be undone
+                    </Label>
+                  </div>
+                )}
+
+                <AlertDialogFooter>
+                  <AlertDialogCancel
+                    disabled={isDeleting && progress.phase !== 'complete' && progress.phase !== 'error'}
+                    className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white"
+                  >
+                    Cancel
+                  </AlertDialogCancel>
+                  {!isDeleting && progress.phase !== 'complete' && (
+                    <AlertDialogAction
+                      onClick={(e) => {
+                        e.preventDefault()
+                        handleDeleteAllData()
+                      }}
+                      disabled={!deleteConfirmed}
+                      className="bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Everything
+                    </AlertDialogAction>
+                  )}
+                  {isDeleting && progress.phase !== 'complete' && progress.phase !== 'error' && (
+                    <Button disabled className="bg-red-600 text-white opacity-75">
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Deleting...
+                    </Button>
+                  )}
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </motion.section>
       </main>
     </div>
   )
