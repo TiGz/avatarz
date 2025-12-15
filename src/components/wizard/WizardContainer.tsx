@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useWizard, WIZARD_STEPS } from '@/hooks/useWizard'
 import { useAvatarOptions } from '@/hooks/useAvatarOptions'
 import { useStylesForCategory } from '@/hooks/useStylesForCategory'
+import { useUserSettings } from '@/hooks/useUserSettings'
 import { StepIndicator } from './StepIndicator'
 import { CaptureStep } from './steps/CaptureStep'
 import { CategoryStep } from './steps/CategoryStep'
@@ -23,7 +24,15 @@ const CUSTOM_STEPS = ['Category', 'Photos', 'Prompt', 'Download']
 
 export function WizardContainer() {
   const { options, loading } = useAvatarOptions()
+  const { settings } = useUserSettings()
   const wizard = useWizard(options)
+
+  // Populate default name from user settings when settings load
+  useEffect(() => {
+    if (settings?.defaultName && !wizard.state.name) {
+      wizard.updateState({ name: settings.defaultName })
+    }
+  }, [settings?.defaultName])
 
   // Only fetch styles when on Style step (1) or later
   const shouldFetchStyles = wizard.step >= WIZARD_STEPS.STYLE

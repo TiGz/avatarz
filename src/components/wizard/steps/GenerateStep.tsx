@@ -5,7 +5,7 @@ import { WizardHook } from '@/hooks/useWizard'
 import { useQuota } from '@/hooks/useQuota'
 import { QuotaDisplay } from '@/components/ui/QuotaDisplay'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Sparkles, RefreshCw, Loader2, AlertCircle, Lock, Eye, User, Search } from 'lucide-react'
+import { ArrowLeft, Sparkles, RefreshCw, Loader2, AlertCircle, Eye, User, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { StyleOption } from '@/types'
 import { GeneratePromptPreview } from '../GeneratePromptPreview'
@@ -21,8 +21,6 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
   const { state, updateState, nextStep, prevStep, isCustomCategory, shouldAutoGenerate, clearAutoGenerate } = wizard
   const { quota, updateQuota } = useQuota()
 
-  // Private tier users can't make avatars public
-  const canMakePublic = quota?.tier !== 'private'
   const [status, setStatus] = useState<'idle' | 'generating' | 'error' | 'limit_reached'>('idle')
   const [progress, setProgress] = useState(0)
   const [showPromptPreview, setShowPromptPreview] = useState(false)
@@ -419,32 +417,6 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
             </div>
           )}
 
-          {/* Privacy toggle - only show if user can make public */}
-          {canMakePublic && (
-            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={!state.isPublic}
-                    onChange={(e) => updateState({ isPublic: !e.target.checked })}
-                    className="sr-only peer"
-                  />
-                  <div className="w-5 h-5 rounded border border-white/30 bg-white/5 peer-checked:bg-purple-500 peer-checked:border-purple-500 transition-colors flex items-center justify-center">
-                    {!state.isPublic && <Lock className="w-3 h-3 text-white" />}
-                  </div>
-                </div>
-                <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
-                  Keep my avatar private
-                </span>
-              </label>
-              <p className="text-xs text-gray-500 mt-1.5 ml-8">
-                {state.isPublic
-                  ? "Your avatar may appear on the welcome screen"
-                  : "Your avatar will only be visible to you"}
-              </p>
-            </div>
-          )}
         </div>
 
         <div className="flex justify-center gap-4">
@@ -571,33 +543,6 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
                 <span className="text-white">{value}</span>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* Privacy toggle - only show if user can make public */}
-        {canMakePublic && (
-          <div className="mt-4 pt-4 border-t border-white/10">
-            <label className="flex items-center gap-3 cursor-pointer group">
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={!state.isPublic}
-                  onChange={(e) => updateState({ isPublic: !e.target.checked })}
-                  className="sr-only peer"
-                />
-                <div className="w-5 h-5 rounded border border-white/30 bg-white/5 peer-checked:bg-purple-500 peer-checked:border-purple-500 transition-colors flex items-center justify-center">
-                  {!state.isPublic && <Lock className="w-3 h-3 text-white" />}
-                </div>
-              </div>
-              <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
-                Keep my avatar private
-              </span>
-            </label>
-            <p className="text-xs text-gray-500 mt-1.5 ml-8">
-              {state.isPublic
-                ? "Your avatar may appear on the welcome screen"
-                : "Your avatar will only be visible to you"}
-            </p>
           </div>
         )}
 

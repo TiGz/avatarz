@@ -224,14 +224,14 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Check if user is on Private tier (always force is_public=false)
+    // Check if user is on Private tier or has private account (always force is_public=false)
     const { data: userProfile } = await supabaseAdmin
       .from('profiles')
-      .select('tier_id')
+      .select('tier_id, is_private_account')
       .eq('id', user.id)
       .single()
 
-    const canMakePublic = userProfile?.tier_id !== 'private'
+    const canMakePublic = userProfile?.tier_id !== 'private' && !userProfile?.is_private_account
 
     // Check daily generation limit
     const { data: quotaData, error: quotaError } = await supabase.rpc('get_user_quota')
