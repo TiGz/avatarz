@@ -1321,14 +1321,14 @@ Deno.serve(async (req) => {
       // Continue without thumbnail - don't fail the whole request
     }
 
-    // Check if user is on Private tier (always force is_public=false)
+    // Check if user is on Private tier or has private account setting
     const { data: userProfile } = await supabaseAdmin
       .from('profiles')
-      .select('tier_id')
+      .select('tier_id, is_private_account')
       .eq('id', user.id)
       .single()
 
-    const canMakePublic = userProfile?.tier_id !== 'private'
+    const canMakePublic = userProfile?.tier_id !== 'private' && !userProfile?.is_private_account
     const isPublic = canMakePublic ? (validatedReq.isPublic !== false) : false
 
     // Generate public share URL for public avatars (bucket is now public)

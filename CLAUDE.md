@@ -30,13 +30,16 @@ src/
 │   ├── useQuota.ts          # Daily generation limit check
 │   ├── useAvatarOptions.ts  # Fetch categories, placements, crops
 │   ├── useStylesForCategory.ts  # Lazy-load styles per category
-│   └── usePublicAvatars.ts  # Public avatar showcase
+│   ├── usePublicAvatars.ts  # Public avatar showcase
+│   ├── useUserSettings.ts   # User settings (default name, privacy)
+│   └── useOnboarding.ts     # First-login onboarding state
 ├── pages/
 │   ├── HomePage.tsx
 │   ├── WizardPage.tsx
 │   ├── AdminPage.tsx
 │   ├── PhotoLibraryPage.tsx
-│   └── GalleryPage.tsx
+│   ├── GalleryPage.tsx
+│   └── SettingsPage.tsx     # User settings page
 ├── lib/
 │   └── supabase.ts      # Supabase client
 └── types/
@@ -47,11 +50,30 @@ src/
 
 ### Tables
 - `allowlist` - Emails allowed to sign up
-- `profiles` - User profiles with `is_admin` flag
+- `profiles` - User profiles with settings (is_admin, tier_id, default_name, is_private_account, age_group, onboarding_completed)
 - `photos` - User photo library (stored in `input-photos` bucket)
 - `generations` - Avatar generation records with cost tracking, thumbnails, public flag
 - `style_categories` - Category definitions (animated, artistic, professional, etc.)
 - `styles` - Individual styles with prompts, linked to categories
+
+### User Settings & Privacy
+
+The `profiles` table includes user settings:
+- `default_name` - Pre-filled name for avatar name overlays
+- `is_private_account` - When true, all avatars are forced private (not in public showcase)
+- `age_group` - 'under_18' or '18_plus', set during first-login onboarding
+- `onboarding_completed` - Whether user has completed age verification
+
+**Privacy Rules:**
+- Under-18 users: `is_private_account` forced to true, cannot be changed
+- Private tier users: `is_private_account` forced to true, cannot be changed
+- Others: Can toggle privacy in Settings page
+
+**RPC Functions:**
+- `get_user_settings()` - Returns current user's settings
+- `update_user_settings(p_default_name, p_is_private_account)` - Update settings
+- `complete_onboarding(p_age_group)` - Set age group during first login
+- `upgrade_to_adult()` - One-way upgrade from under_18 to 18_plus (unlocks privacy toggle)
 
 ### Style Categories & Styles
 

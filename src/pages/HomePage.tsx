@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
 import { useQuota } from '@/hooks/useQuota'
 import { useInviteQuota } from '@/hooks/useInviteQuota'
-import { LogOut, Settings, Image, FolderOpen, Users, X, Sparkles } from 'lucide-react'
+import { LogOut, Settings, Settings2, Image, FolderOpen, Users, X, Sparkles } from 'lucide-react'
 import { Header } from '@/components/ui/Header'
 import { QuotaDisplay } from '@/components/ui/QuotaDisplay'
 import { InstallBanner } from '@/components/pwa/InstallBanner'
@@ -62,6 +62,11 @@ export function HomePage() {
             <Users className="h-5 w-5" />
           </Button>
         )}
+        <Link to="/settings">
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
+            <Settings2 className="h-5 w-5" />
+          </Button>
+        </Link>
         {isAdmin && (
           <Link to="/admin">
             <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">

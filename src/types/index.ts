@@ -116,7 +116,21 @@ export interface Profile {
   id: string
   email: string
   is_admin: boolean
+  tier_id: string
+  default_name: string | null
+  is_private_account: boolean
+  age_group: 'under_18' | '18_plus' | null
+  onboarding_completed: boolean
   created_at: string
+}
+
+// User settings (from get_user_settings RPC)
+export interface UserSettings {
+  defaultName: string | null
+  isPrivateAccount: boolean
+  ageGroup: 'under_18' | '18_plus' | null
+  onboardingCompleted: boolean
+  tier: string
 }
 
 export interface AllowlistEntry {

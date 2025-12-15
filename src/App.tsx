@@ -1,6 +1,7 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from '@/components/ui/sonner'
 import { useAuth } from '@/hooks/useAuth'
+import { useOnboarding } from '@/hooks/useOnboarding'
 import { LoginPage } from '@/pages/LoginPage'
 import { HomePage } from '@/pages/HomePage'
 import { AdminPage } from '@/pages/AdminPage'
@@ -9,13 +10,16 @@ import { PhotoLibraryPage } from '@/pages/PhotoLibraryPage'
 import { GalleryPage } from '@/pages/GalleryPage'
 import { WallpaperPage } from '@/pages/WallpaperPage'
 import { EditPage } from '@/pages/EditPage'
+import { SettingsPage } from '@/pages/SettingsPage'
 import { InviteRedemptionPage } from '@/pages/InviteRedemptionPage'
+import { AgeVerificationModal } from '@/components/onboarding/AgeVerificationModal'
 import { Loader2 } from 'lucide-react'
 
 function AppRoutes() {
-  const { user, loading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
+  const { needsOnboarding, completeOnboarding, loading: onboardingLoading } = useOnboarding()
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-black">
         <Loader2 className="h-8 w-8 animate-spin text-white" />
@@ -24,41 +28,57 @@ function AppRoutes() {
   }
 
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={user ? <HomePage /> : <LoginPage />}
-      />
-      <Route
-        path="/wizard"
-        element={user ? <WizardPage /> : <Navigate to="/" />}
-      />
-      <Route
-        path="/admin"
-        element={user ? <AdminPage /> : <Navigate to="/" />}
-      />
-      <Route
-        path="/photos"
-        element={user ? <PhotoLibraryPage /> : <Navigate to="/" />}
-      />
-      <Route
-        path="/gallery"
-        element={user ? <GalleryPage /> : <Navigate to="/" />}
-      />
-      <Route
-        path="/wallpaper/:generationId"
-        element={user ? <WallpaperPage /> : <Navigate to="/" />}
-      />
-      <Route
-        path="/edit/:id"
-        element={user ? <EditPage /> : <Navigate to="/" />}
-      />
-      <Route
-        path="/invite/:code"
-        element={<InviteRedemptionPage />}
-      />
-      <Route path="*" element={<Navigate to="/" />} />
-    </Routes>
+    <>
+      {/* Age verification modal for first-time users */}
+      {user && (
+        <AgeVerificationModal
+          open={needsOnboarding && !onboardingLoading}
+          onComplete={async (ageGroup) => {
+            await completeOnboarding(ageGroup)
+          }}
+        />
+      )}
+
+      <Routes>
+        <Route
+          path="/"
+          element={user ? <HomePage /> : <LoginPage />}
+        />
+        <Route
+          path="/wizard"
+          element={user ? <WizardPage /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/admin"
+          element={user ? <AdminPage /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/photos"
+          element={user ? <PhotoLibraryPage /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/gallery"
+          element={user ? <GalleryPage /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/wallpaper/:generationId"
+          element={user ? <WallpaperPage /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/edit/:id"
+          element={user ? <EditPage /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/settings"
+          element={user ? <SettingsPage /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/invite/:code"
+          element={<InviteRedemptionPage />}
+        />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </>
   )
 }
 
