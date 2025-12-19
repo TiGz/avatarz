@@ -110,8 +110,8 @@ export function PhotoGrid({
             </div>
           )}
 
-          {/* Overlay with actions */}
-          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+          {/* Overlay with actions - hidden on mobile (touch devices don't have hover) */}
+          <div className="absolute inset-0 bg-black/50 opacity-0 transition-opacity hidden sm:flex sm:group-hover:opacity-100 items-center justify-center gap-2">
             {onDelete && (
               <Button
                 size="icon"
