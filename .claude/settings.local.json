@@ -74,7 +74,8 @@
       "Bash(supabase inspect db:*)",
       "Bash(npm run lint:*)",
       "Bash(xargs basename:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(supabase login:*)"
     ],
     "deny": [],
     "ask": []

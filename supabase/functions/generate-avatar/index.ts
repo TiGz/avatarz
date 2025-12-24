@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts'
+// Image import removed - thumbnail generation moved to client-side
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -394,8 +394,10 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
     if (typeof req.customStyle !== 'string' || req.customStyle.length > 3000) {
       throw new Error('Custom style must be under 3000 characters')
     }
-    // Allow broad set of printable characters for expressive prompts
-    if (!/^[\w\s\-.,!?'"():;/*#@&_=+\[\]{}|~%$^]+$/.test(req.customStyle)) {
+    // Block control characters (except whitespace) but allow all printable Unicode
+    // This permits smart quotes, em-dashes, non-breaking hyphens, accented chars, etc.
+    // eslint-disable-next-line no-control-regex
+    if (/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(req.customStyle)) {
       throw new Error('Custom style contains invalid characters')
     }
   }
@@ -498,42 +500,11 @@ function validateRequest(payload: unknown): GenerateAvatarRequest {
 }
 
 // ============================================================================
-// THUMBNAIL GENERATION
+// THUMBNAIL GENERATION - Now handled client-side to avoid CPU limits
 // ============================================================================
-
-async function generateThumbnail(
-  pngBytes: Uint8Array,
-  width: number,
-  height: number,
-  quality: number
-): Promise<Uint8Array> {
-  try {
-    const image = await Image.decode(pngBytes)
-    image.resize(width, height)
-    // Encode as JPEG with specified quality (1-100)
-    const jpegBytes = await image.encodeJPEG(quality)
-    return jpegBytes
-  } catch (error) {
-    console.error('Thumbnail generation error:', error)
-    throw new Error('Failed to generate thumbnail')
-  }
-}
-
-// Calculate thumbnail dimensions that fit within MAX_SIZE while preserving aspect ratio
-function calculateThumbnailDimensions(
-  originalWidth: number,
-  originalHeight: number
-): { width: number; height: number } {
-  const MAX_SIZE = 300
-  const ratio = originalWidth / originalHeight
-
-  if (ratio >= 1) {
-    // Landscape or square: constrain width
-    return { width: MAX_SIZE, height: Math.round(MAX_SIZE / ratio) }
-  }
-  // Portrait: constrain height
-  return { width: Math.round(MAX_SIZE * ratio), height: MAX_SIZE }
-}
+// Thumbnail generation has been moved to the browser (src/lib/thumbnailGenerator.ts)
+// to avoid hitting Supabase Edge Function CPU limits on large images.
+// The client generates thumbnails using Canvas API after receiving the full image.
 
 // ============================================================================
 // MAIN HANDLER
@@ -1292,34 +1263,9 @@ Deno.serve(async (req) => {
       throw new Error('Failed to save avatar')
     }
 
-    // Generate and upload thumbnail with correct aspect ratio
-    let thumbnailFilename: string | null = null
-    try {
-      console.log('Generating thumbnail...')
-      // Decode image to get actual dimensions for aspect-ratio-aware thumbnail
-      const decodedImage = await Image.decode(avatarBuffer)
-      const { width: thumbW, height: thumbH } = calculateThumbnailDimensions(decodedImage.width, decodedImage.height)
-      console.log(`Original: ${decodedImage.width}x${decodedImage.height}, Thumbnail: ${thumbW}x${thumbH}`)
-      const thumbnailBuffer = await generateThumbnail(avatarBuffer, thumbW, thumbH, 98)
-      thumbnailFilename = `${user.id}/${Date.now()}_${crypto.randomUUID()}_thumb.jpg`
-
-      const { error: thumbUploadError } = await supabaseAdmin.storage
-        .from('avatar-thumbnails')
-        .upload(thumbnailFilename, thumbnailBuffer, {
-          contentType: 'image/jpeg',
-          cacheControl: '31536000', // 1 year cache for thumbnails
-        })
-
-      if (thumbUploadError) {
-        console.error('Thumbnail upload error:', thumbUploadError)
-        thumbnailFilename = null // Continue without thumbnail
-      } else {
-        console.log('Thumbnail uploaded:', thumbnailFilename)
-      }
-    } catch (thumbError) {
-      console.error('Thumbnail generation failed:', thumbError)
-      // Continue without thumbnail - don't fail the whole request
-    }
+    // Thumbnail generation is now handled client-side to avoid CPU limits
+    // The client will call generateAndUploadThumbnail() after receiving the image
+    const thumbnailFilename: string | null = null
 
     // Check if user is on Private tier or has private account setting
     const { data: userProfile } = await supabaseAdmin
@@ -1338,13 +1284,17 @@ Deno.serve(async (req) => {
       shareUrl = `${supabaseUrl}/storage/v1/object/public/avatar-thumbnails/${thumbnailFilename}`
     }
 
-    // Build metadata for banner formats
-    const metadata = bannerConfig ? {
-      banner_format: requestedRatio,
-      original_ratio: bannerConfig.geminiRatio,
-      width: bannerConfig.width,
-      height: bannerConfig.height,
-    } : null
+    // Build metadata - always store aspectRatio/imageSize, add banner-specific fields when applicable
+    const metadata: Record<string, unknown> = {
+      aspect_ratio: requestedRatio,
+      image_size: geminiImageSize,
+    }
+    if (bannerConfig) {
+      metadata.banner_format = requestedRatio
+      metadata.original_ratio = bannerConfig.geminiRatio
+      metadata.width = bannerConfig.width
+      metadata.height = bannerConfig.height
+    }
 
     // Create generation record in database
     const { data: generation, error: dbError } = await supabaseAdmin

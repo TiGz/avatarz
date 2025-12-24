@@ -3,8 +3,10 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { WizardHook } from '@/hooks/useWizard'
 import { useQuota } from '@/hooks/useQuota'
+import { useAuth } from '@/hooks/useAuth'
 import { QuotaDisplay } from '@/components/ui/QuotaDisplay'
 import { supabase } from '@/lib/supabase'
+import { generateAndUploadThumbnail } from '@/lib/thumbnailGenerator'
 import { ArrowLeft, Sparkles, RefreshCw, Loader2, AlertCircle, Eye, User, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { StyleOption } from '@/types'
@@ -20,6 +22,7 @@ interface GenerateStepProps {
 export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
   const { state, updateState, nextStep, prevStep, isCustomCategory, shouldAutoGenerate, clearAutoGenerate } = wizard
   const { quota, updateQuota } = useQuota()
+  const { user } = useAuth()
 
   const [status, setStatus] = useState<'idle' | 'generating' | 'error' | 'limit_reached'>('idle')
   const [progress, setProgress] = useState(0)
@@ -139,6 +142,23 @@ export function GenerateStep({ wizard, selectedStyle }: GenerateStepProps) {
       // Update quota from response
       if (result.quota) {
         updateQuota(result.quota)
+      }
+
+      setProgress(95)
+
+      // Generate thumbnail client-side (non-blocking)
+      if (result.image && result.generationId && user?.id) {
+        generateAndUploadThumbnail(result.image, result.generationId, user.id)
+          .then((thumbResult) => {
+            if (thumbResult.success) {
+              console.log('[GenerateStep] Thumbnail generated:', thumbResult.thumbnailUrl)
+            } else {
+              console.warn('[GenerateStep] Thumbnail generation failed:', thumbResult.error)
+            }
+          })
+          .catch((err) => {
+            console.warn('[GenerateStep] Thumbnail generation error:', err)
+          })
       }
 
       setProgress(100)
