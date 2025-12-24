@@ -21,8 +21,13 @@ import {
   ChevronUp,
 } from 'lucide-react'
 
-type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
+// Extended to include banner formats (matches WizardState)
+type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | 'linkedin' | 'twitter' | 'facebook' | 'youtube'
 type ImageSize = '500' | '1K' | '2K'
+
+// Valid aspect ratios for validation
+const VALID_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4', 'linkedin', 'twitter', 'facebook', 'youtube']
+const VALID_IMAGE_SIZES = ['500', '1K', '2K']
 
 export function EditPage() {
   const { id } = useParams<{ id: string }>()
@@ -88,6 +93,40 @@ export function EditPage() {
 
     fetchGeneration()
   }, [id, user, navigate])
+
+  // Sync URL params from generation metadata on load (if not already set)
+  useEffect(() => {
+    if (!generation?.metadata) return
+
+    const currentAspectRatio = searchParams.get('aspectRatio')
+    const currentImageSize = searchParams.get('imageSize')
+
+    // Only sync if params are NOT already in URL (preserve user choices)
+    if (currentAspectRatio && currentImageSize) return
+
+    const params = new URLSearchParams(searchParams)
+    let hasChanges = false
+
+    if (!currentAspectRatio) {
+      const metadataRatio = generation.metadata.aspect_ratio as string | undefined
+      if (metadataRatio && VALID_ASPECT_RATIOS.includes(metadataRatio)) {
+        params.set('aspectRatio', metadataRatio)
+        hasChanges = true
+      }
+    }
+
+    if (!currentImageSize) {
+      const metadataSize = generation.metadata.image_size as string | undefined
+      if (metadataSize && VALID_IMAGE_SIZES.includes(metadataSize)) {
+        params.set('imageSize', metadataSize)
+        hasChanges = true
+      }
+    }
+
+    if (hasChanges) {
+      setSearchParams(params, { replace: true })
+    }
+  }, [generation]) // Only depend on generation, not searchParams (avoid infinite loop)
 
   // Progress animation during generation
   useEffect(() => {
@@ -323,6 +362,12 @@ export function EditPage() {
                         <option value="9:16">9:16 Portrait</option>
                         <option value="4:3">4:3 Standard</option>
                         <option value="3:4">3:4 Portrait</option>
+                        <optgroup label="Social Banners">
+                          <option value="linkedin">LinkedIn Banner</option>
+                          <option value="twitter">Twitter/X Banner</option>
+                          <option value="facebook">Facebook Cover</option>
+                          <option value="youtube">YouTube Banner</option>
+                        </optgroup>
                       </select>
                     </div>
                     <div>
@@ -344,12 +389,25 @@ export function EditPage() {
                     <span className="text-xs text-white/50">Output:</span>
                     <div
                       className="border border-white/30 bg-white/10"
-                      style={{
-                        width: aspectRatio === '16:9' ? 48 : aspectRatio === '9:16' ? 27 : aspectRatio === '4:3' ? 40 : aspectRatio === '3:4' ? 30 : 36,
-                        height: aspectRatio === '16:9' ? 27 : aspectRatio === '9:16' ? 48 : aspectRatio === '4:3' ? 30 : aspectRatio === '3:4' ? 40 : 36,
-                      }}
+                      style={(() => {
+                        const previewDimensions: Record<string, { width: number; height: number }> = {
+                          '1:1': { width: 36, height: 36 },
+                          '16:9': { width: 48, height: 27 },
+                          '9:16': { width: 27, height: 48 },
+                          '4:3': { width: 40, height: 30 },
+                          '3:4': { width: 30, height: 40 },
+                          'linkedin': { width: 48, height: 12 },
+                          'twitter': { width: 48, height: 16 },
+                          'facebook': { width: 48, height: 18 },
+                          'youtube': { width: 48, height: 27 },
+                        }
+                        return previewDimensions[aspectRatio] || previewDimensions['1:1']
+                      })()}
                     />
-                    <span className="text-xs text-white/50">{imageSize === '2K' ? '2048px' : imageSize === '500' ? '500px' : '1024px'}</span>
+                    <span className="text-xs text-white/50">
+                      {imageSize === '2K' ? '2048px' : imageSize === '500' ? '500px' : '1024px'}
+                      {['linkedin', 'twitter', 'facebook', 'youtube'].includes(aspectRatio) && ' (banner)'}
+                    </span>
                   </div>
                 </div>
               )}
