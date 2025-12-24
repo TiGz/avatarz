@@ -277,7 +277,7 @@ export function AvatarModal({
           dragConstraints={{ top: 0, bottom: 0 }}
           dragElastic={0.2}
           onDragEnd={handleDragEnd}
-          className="relative w-full h-full sm:h-auto sm:max-w-3xl bg-gray-900 sm:rounded-2xl overflow-hidden overflow-y-auto touch-pan-x"
+          className="relative w-full h-full sm:h-auto sm:max-w-5xl sm:max-h-[90vh] bg-gray-900 sm:rounded-2xl overflow-hidden overflow-y-auto touch-pan-x"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Mobile header with back button and counter */}
@@ -344,7 +344,7 @@ export function AvatarModal({
           <div className="flex flex-col sm:flex-row min-h-0">
             {/* Image - progressive loading from thumbnail to full resolution */}
             <motion.div
-              className="w-full sm:w-2/3 bg-black relative overflow-hidden flex-shrink-0 min-h-[200px] max-h-[50vh] sm:max-h-none flex items-center justify-center"
+              className="w-full sm:flex-1 bg-black relative overflow-hidden flex-shrink-0 min-h-[200px] max-h-[50vh] sm:max-h-[85vh] flex items-center justify-center"
               style={{ aspectRatio: getAspectRatioCss(generation.metadata?.original_ratio) }}
               drag="x"
               dragConstraints={{ left: 0, right: 0 }}
@@ -387,7 +387,7 @@ export function AvatarModal({
             </motion.div>
 
             {/* Details */}
-            <div className="w-full sm:w-1/3 p-4 sm:p-6 pb-6 sm:pb-6 space-y-3 sm:space-y-4 overflow-y-auto">
+            <div className="w-full sm:w-80 sm:flex-shrink-0 p-4 sm:p-6 pb-6 sm:pb-6 space-y-3 sm:space-y-4 overflow-y-auto">
               <h2 className="text-lg sm:text-xl font-bold text-white">Avatar Details</h2>
 
               <div className="space-y-3">
