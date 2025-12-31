@@ -255,6 +255,7 @@ export interface RecentGeneration {
   gen_cost_usd: number | null
   gen_created_at: string
   gen_thumbnail_path: string | null
+  gen_storage_path: string | null
 }
 
 // Extended wizard state to support photo library

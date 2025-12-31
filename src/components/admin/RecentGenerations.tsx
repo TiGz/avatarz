@@ -12,6 +12,8 @@ export function RecentGenerations() {
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+  const [fullImageUrl, setFullImageUrl] = useState<string | null>(null)
+  const [loadingImage, setLoadingImage] = useState(false)
   const pageSize = 20
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -19,6 +21,38 @@ export function RecentGenerations() {
   useEffect(() => {
     fetchGenerations()
   }, [page])
+
+  // Fetch signed URL for full image when modal opens
+  useEffect(() => {
+    const fetchFullImageUrl = async () => {
+      if (selectedIndex === null) {
+        setFullImageUrl(null)
+        return
+      }
+
+      const gen = generations[selectedIndex]
+      if (!gen) return
+
+      // If we have a thumbnail, use it (public URL, no fetching needed)
+      if (gen.gen_thumbnail_path) {
+        setFullImageUrl(null) // Will use thumbnail
+        return
+      }
+
+      // Need to fetch signed URL for full image
+      if (gen.gen_storage_path) {
+        setLoadingImage(true)
+        const { data } = await supabase.storage
+          .from('avatars')
+          .createSignedUrl(gen.gen_storage_path, 3600)
+
+        setFullImageUrl(data?.signedUrl || null)
+        setLoadingImage(false)
+      }
+    }
+
+    fetchFullImageUrl()
+  }, [selectedIndex, generations])
 
   // Keyboard navigation
   useEffect(() => {
@@ -41,6 +75,13 @@ export function RecentGenerations() {
   const getThumbnailUrl = (thumbnailPath: string | null) => {
     if (!thumbnailPath) return null
     return `${supabaseUrl}/storage/v1/object/public/avatar-thumbnails/${thumbnailPath}`
+  }
+
+  // Get best available image URL for the modal
+  const getDisplayImageUrl = () => {
+    if (!selectedGen) return null
+    // Prefer thumbnail (public), fallback to fetched signed URL for full image
+    return getThumbnailUrl(selectedGen.gen_thumbnail_path) || fullImageUrl
   }
 
   const fetchGenerations = async () => {
@@ -232,15 +273,19 @@ export function RecentGenerations() {
               onClick={(e) => e.stopPropagation()}
               className="bg-gray-900 rounded-xl overflow-hidden max-w-sm w-full shadow-2xl"
             >
-              {getThumbnailUrl(selectedGen.gen_thumbnail_path) ? (
+              {loadingImage ? (
+                <div className="w-full aspect-square bg-gray-800 flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                </div>
+              ) : getDisplayImageUrl() ? (
                 <img
-                  src={getThumbnailUrl(selectedGen.gen_thumbnail_path)!}
+                  src={getDisplayImageUrl()!}
                   alt="Avatar"
                   className="w-full aspect-square object-cover"
                 />
               ) : (
                 <div className="w-full aspect-square bg-gray-800 flex items-center justify-center text-gray-500">
-                  No thumbnail
+                  No image available
                 </div>
               )}
               <div className="p-4 space-y-2">
